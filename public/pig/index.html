@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贾贾 ❤️ 猪猪</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, #ffe4ec 0%, #ffb6c1 50%, #ff91a4 100%);
+        }
+
+        /* 背景装饰 */
+        .bg-decoration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            animation: float 8s ease-in-out infinite;
+        }
+        .bg-circle:nth-child(1) { width: 200px; height: 200px; top: -50px; left: -30px; animation-delay: 0s; }
+        .bg-circle:nth-child(2) { width: 150px; height: 150px; top: 20%; right: -40px; animation-delay: 2s; }
+        .bg-circle:nth-child(3) { width: 180px; height: 180px; bottom: 10%; left: 5%; animation-delay: 4s; }
+        .bg-circle:nth-child(4) { width: 100px; height: 100px; bottom: 30%; right: 10%; animation-delay: 1s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.05); }
+        }
+
+        /* 飘落花瓣 */
+        .petal {
+            position: fixed;
+            pointer-events: none;
+            font-size: 20px;
+            animation: fall linear infinite;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        @keyframes fall {
+            0% { 
+                transform: translateY(-60px) rotate(0deg) translateX(0); 
+                opacity: 0; 
+            }
+            10% { opacity: 0.8; }
+            100% { 
+                transform: translateY(110vh) rotate(720deg) translateX(60px); 
+                opacity: 0; 
+            }
+        }
+
+        /* 照片轮播容器 */
+        .carousel-container {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 750px;
+            margin: 0 auto;
+        }
+
+        .carousel {
+            width: 100%;
+            aspect-ratio: 4/3;
+            position: relative;
+            overflow: hidden;
+            border-radius: 30px;
+            box-shadow: 
+                0 20px 60px rgba(219, 39, 119, 0.3),
+                0 8px 24px rgba(0,0,0,0.15),
+                inset 0 0 0 3px rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .carousel-track {
+            display: flex;
+            height: 100%;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .carousel-slide img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        /* 左右箭头按钮 */
+        .carousel-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(255,255,255,0.5);
+            color: #fff;
+            font-size: 26px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 15;
+        }
+
+        .carousel-arrow:hover {
+            background: rgba(255,255,255,0.5);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .carousel-arrow.prev { left: 15px; }
+        .carousel-arrow.next { right: 15px; }
+
+        /* 轮播指示器 */
+        .carousel-dots {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+            z-index: 10;
+        }
+
+        .carousel-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.4s ease;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        .carousel-dot.active {
+            background: #fff;
+            transform: scale(1.3);
+            box-shadow: 0 0 15px rgba(255,255,255,0.7);
+        }
+
+        .carousel-dot:hover {
+            background: rgba(255,255,255,0.7);
+        }
+
+        /* 文字区域 */
+        .text-area {
+            position: relative;
+            z-index: 10;
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        .love-text {
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #fff;
+            text-shadow: 
+                0 2px 10px rgba(219, 39, 119, 0.4),
+                0 0 30px rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .heart {
+            display: inline-block;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.15); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.1); }
+        }
+
+        /* 小装饰 */
+        .decorations {
+            position: relative;
+            z-index: 10;
+            margin-top: 20px;
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 8px;
+        }
+
+        /* 闪亮效果 */
+        .sparkle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            animation: sparkle 2s ease-in-out infinite;
+            opacity: 0;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景装饰 -->
+    <div class="bg-decoration">
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+    </div>
+
+    <!-- 照片轮播 -->
+    <div class="carousel-container">
+        <div class="carousel">
+            <div class="carousel-track" id="carouselTrack">
+                <div class="carousel-slide">
+                    <img src="/jia/75c720504cfff9ee7dbb18472e7fcc37.jpg" alt="玩偶1">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/jia/33859bce0a1876af52b8abfc85a9114a.jpg" alt="玩偶2">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/jia/3db9540147c7c87b2efec69392efc5b4.jpg" alt="玩偶3">
+                </div>
+                <div class="carousel-slide">
+                    <img src="/jia/fc935abbc439b0d2fdc4b40d64e7622c.jpg" alt="玩偶4">
+                </div>
+            </div>
+            
+            <!-- 左右箭头 -->
+            <button class="carousel-arrow prev" onclick="prevSlide()">‹</button>
+            <button class="carousel-arrow next" onclick="nextSlide()">›</button>
+        </div>
+        <div class="carousel-dots">
+            <div class="carousel-dot active" onclick="goToSlide(0)"></div>
+            <div class="carousel-dot" onclick="goToSlide(1)"></div>
+            <div class="carousel-dot" onclick="goToSlide(2)"></div>
+            <div class="carousel-dot" onclick="goToSlide(3)"></div>
+        </div>
+    </div>
+
+    <!-- 文字 -->
+    <div class="text-area">
+        <div class="love-text">
+            贾贾 <span class="heart">💗</span> 猪猪
+        </div>
+    </div>
+
+    <div class="decorations">♡ ♡ ♡</div>
+
+    <script>
+        // 轮播功能
+        let currentSlide = 0;
+        const totalSlides = 4;
+        const track = document.getElementById('carouselTrack');
+        const dots = document.querySelectorAll('.carousel-dot');
+
+        function goToSlide(index) {
+            currentSlide = ((index % totalSlides) + totalSlides) % totalSlides;
+            track.style.transform = `translateX(-${currentSlide * 100}%)`;
+            dots.forEach((dot, idx) => {
+                dot.classList.toggle('active', idx === currentSlide);
+            });
+        }
+
+        function nextSlide() {
+            goToSlide(currentSlide + 1);
+        }
+
+        function prevSlide() {
+            goToSlide(currentSlide - 1);
+        }
+
+        // 自动轮播
+        let autoPlay = setInterval(nextSlide, 3500);
+
+        // 鼠标悬停时暂停自动轮播
+        document.querySelector('.carousel').addEventListener('mouseenter', () => {
+            clearInterval(autoPlay);
+        });
+
+        document.querySelector('.carousel').addEventListener('mouseleave', () => {
+            autoPlay = setInterval(nextSlide, 3500);
+        });
+
+        // 创建飘落花瓣
+        function createPetals() {
+            const petals = ['🌸', '🩷', '✿', '❀', '🌺', '💕'];
+            const container = document.body;
+            
+            for (let i = 0; i < 20; i++) {
+                const petal = document.createElement('div');
+                petal.className = 'petal';
+                petal.textContent = petals[Math.floor(Math.random() * petals.length)];
+                petal.style.left = Math.random() * 100 + '%';
+                petal.style.fontSize = (16 + Math.random() * 12) + 'px';
+                petal.style.animationDuration = (6 + Math.random() * 6) + 's';
+                petal.style.animationDelay = Math.random() * 10 + 's';
+                container.appendChild(petal);
+            }
+        }
+
+        // 创建闪亮效果
+        function createSparkles() {
+            const container = document.querySelector('.carousel-container');
+            
+            for (let i = 0; i < 12; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = Math.random() * 100 + '%';
+                sparkle.style.top = Math.random() * 100 + '%';
+                sparkle.style.animationDelay = Math.random() * 2 + 's';
+                container.appendChild(sparkle);
+            }
+        }
+
+        // 初始化
+        createPetals();
+        createSparkles();
+    </script>
+</body>
+</html>

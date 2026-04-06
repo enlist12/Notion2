@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>给贾贾的惊喜</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+
+        /* ========== 第一页 - 星空 ========== */
+        #page1 {
+            width: 100vw; height: 100vh;
+            position: relative; overflow: hidden; cursor: pointer;
+            background: radial-gradient(ellipse at 50% 100%, #06081a 0%, #030510 25%, #010208 55%, #000 100%);
+        }
+        #starCanvas, #petalCanvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        }
+        #petalCanvas { z-index: 10; pointer-events: none; }
+        .click-hint {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.6); font-size: 18px; letter-spacing: 4px;
+            z-index: 20; animation: hintPulse 2.5s ease-in-out infinite;
+            transition: opacity 0.5s ease;
+        }
+        @keyframes hintPulse {
+            0%,100% { opacity: 0.4; transform: translateX(-50%) translateY(0); }
+            50% { opacity: 1; transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* ========== 第二页 ========== */
+        #page2 {
+            width: 100vw; min-height: 100vh; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+            background: linear-gradient(160deg, #fce4ec 0%, #f8bbd0 30%, #f48fb1 60%, #f06292 100%);
+        }
+        #page2.show { display: flex; animation: page2In 1.2s ease forwards; }
+        @keyframes page2In {
+            from { opacity: 0; transform: scale(1.05); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* 第二页背景装饰 */
+        .bg-circle {
+            position: absolute; border-radius: 50%; pointer-events: none;
+            background: rgba(255,255,255,0.08);
+            animation: floatCircle 20s ease-in-out infinite;
+        }
+        @keyframes floatCircle {
+            0%,100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* 飘落花瓣 - 第二页 */
+        .petal2 {
+            position: fixed; pointer-events: none; z-index: 5; font-size: 22px;
+            animation: petalFall linear infinite; opacity: 0;
+        }
+        @keyframes petalFall {
+            0% { transform: translateY(-60px) rotate(0deg) translateX(0); opacity: 0; }
+            8% { opacity: 0.7; }
+            100% { transform: translateY(105vh) rotate(720deg) translateX(80px); opacity: 0; }
+        }
+
+        /* 照片轮播 */
+        .carousel-wrapper {
+            position: relative; z-index: 10; width: 90%; max-width: 720px; margin: 0 auto;
+        }
+        .carousel {
+            width: 100%; aspect-ratio: 4/3; position: relative; overflow: hidden;
+            border-radius: 24px;
+            box-shadow: 0 20px 80px rgba(136,14,79,0.25), 0 8px 32px rgba(0,0,0,0.15);
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .carousel-track {
+            display: flex; height: 100%;
+            transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .carousel-slide {
+            min-width: 100%; height: 100%; display: flex;
+            justify-content: center; align-items: center; padding: 12px;
+        }
+        .carousel-slide img {
+            max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 16px;
+        }
+
+        /* 轮播指示器 */
+        .carousel-dots {
+            display: flex; justify-content: center; gap: 10px;
+            margin-top: 20px; z-index: 10; position: relative;
+        }
+        .carousel-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: rgba(255,255,255,0.4); cursor: pointer;
+            transition: all 0.4s ease; border: none; outline: none;
+        }
+        .carousel-dot.active {
+            background: #fff; transform: scale(1.4);
+            box-shadow: 0 0 12px rgba(255,255,255,0.6);
+        }
+
+        /* 轮播左右按钮 */
+        .carousel-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(255,255,255,0.25); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s ease; z-index: 15;
+        }
+        .carousel-btn:hover { background: rgba(255,255,255,0.45); transform: translateY(-50%) scale(1.1); }
+        .carousel-btn.prev { left: 12px; }
+        .carousel-btn.next { right: 12px; }
+
+        /* 交替文字 */
+        .love-text-area {
+            position: relative; z-index: 10;
+            margin-top: 36px; text-align: center;
+            min-height: 60px; display: flex; align-items: center; justify-content: center;
+        }
+        .love-text {
+            font-size: 32px; font-weight: 700; letter-spacing: 4px; color: #fff;
+            text-shadow: 0 2px 12px rgba(136,14,79,0.35), 0 0 40px rgba(255,255,255,0.15);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .love-text.fade-out { opacity: 0; transform: translateY(10px); }
+        .love-text.fade-in  { opacity: 1; transform: translateY(0); }
+
+        .footer-hearts {
+            position: relative; z-index: 10;
+            margin-top: 24px; font-size: 14px; color: rgba(255,255,255,0.5); letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== 第一页 ========== -->
+<div id="page1" onclick="scatterAndTransition()">
+    <canvas id="starCanvas"></canvas>
+    <canvas id="petalCanvas"></canvas>
+    <div class="click-hint">轻触屏幕 ❤️</div>
+</div>
+
+<!-- ========== 第二页 ========== -->
+<div id="page2">
+    <div class="bg-circle" style="width:300px;height:300px;top:-80px;left:-60px;"></div>
+    <div class="bg-circle" style="width:200px;height:200px;bottom:40px;right:-40px;animation-delay:5s;"></div>
+    <div class="bg-circle" style="width:150px;height:150px;top:40%;left:70%;animation-delay:10s;"></div>
+
+    <div class="carousel-wrapper">
+        <div class="carousel">
+            <div class="carousel-track" id="carouselTrack">
+                <div class="carousel-slide"><img src="/jia/75c720504cfff9ee7dbb18472e7fcc37.jpg" alt="照片1"></div>
+                <div class="carousel-slide"><img src="/jia/e9d2e8dc84b6d48654c3c86d955eef77.jpg" alt="照片2"></div>
+                <div class="carousel-slide"><img src="/jia/f3198688ea8ed489b96fd5d58f20edf2.jpg" alt="照片3"></div>
+                <div class="carousel-slide"><img src="/jia/fc935abbc439b0d2fdc4b40d64e7622c.jpg" alt="照片4"></div>
+            </div>
+            <button class="carousel-btn prev" onclick="event.stopPropagation();slideBy(-1)">‹</button>
+            <button class="carousel-btn next" onclick="event.stopPropagation();slideBy(1)">›</button>
+        </div>
+        <div class="carousel-dots">
+            <div class="carousel-dot active" onclick="goToSlide(0)"></div>
+            <div class="carousel-dot" onclick="goToSlide(1)"></div>
+            <div class="carousel-dot" onclick="goToSlide(2)"></div>
+            <div class="carousel-dot" onclick="goToSlide(3)"></div>
+        </div>
+    </div>
+
+    <div class="love-text-area">
+        <div class="love-text fade-in" id="loveText">贾贾天天开心</div>
+    </div>
+    <div class="footer-hearts">♡ ♡ ♡</div>
+</div>
+
+<script>
+/* ==========================================================
+   第一页 — Canvas 真实星空（高仿真版）
+   ========================================================== */
+const starCvs = document.getElementById('starCanvas');
+const starCtx = starCvs.getContext('2d');
+let W = window.innerWidth, H = window.innerHeight;
+starCvs.width = W; starCvs.height = H;
+
+function resizeAll() {
+    W = starCvs.width = window.innerWidth;
+    H = starCvs.height = window.innerHeight;
+    if (typeof petalCvs !== 'undefined') { petalCvs.width = W; petalCvs.height = H; }
+    milkyWayBuffer = null; // 清除缓存以重绘
+}
+
+// 真实星星光谱色 (基于恒星光谱分类 O B A F G K M)
+const SPECTRAL_COLORS = [
+    { r: 155, g: 176, b: 255, weight: 3 },   // O 型 - 蓝
+    { r: 170, g: 191, b: 255, weight: 8 },   // B 型 - 蓝白
+    { r: 202, g: 215, b: 255, weight: 12 },  // A 型 - 白
+    { r: 248, g: 247, b: 255, weight: 15 },  // F 型 - 黄白
+    { r: 255, g: 244, b: 232, weight: 20 },  // G 型 - 黄 (太阳)
+    { r: 255, g: 210, b: 161, weight: 15 },  // K 型 - 橙
+    { r: 255, g: 187, b: 123, weight: 7 },   // M 型 - 红橙
+];
+function pickStarColor() {
+    let total = 0; SPECTRAL_COLORS.forEach(c => total += c.weight);
+    let r = Math.random() * total;
+    for (const c of SPECTRAL_COLORS) { r -= c.weight; if (r <= 0) return c; }
+    return SPECTRAL_COLORS[3];
+}
+
+// —— 多层星星系统 ——
+class Star {
+    constructor(layer) {
+        this.layer = layer; // 'bg' | 'mid' | 'bright'
+        this.reset();
+    }
+    reset() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.phase = Math.random() * Math.PI * 2;
+        const c = pickStarColor();
+        this.cr = c.r; this.cg = c.g; this.cb = c.b;
+
+        if (this.layer === 'bg') {
+            // 背景微弱星 - 很小很密
+            this.r = Math.random() * 0.7 + 0.2;
+            this.baseAlpha = Math.random() * 0.25 + 0.08;
+            this.twinkleAmp = Math.random() * 0.2 + 0.08;
+            this.twinkleSpeed = Math.random() * 0.03 + 0.008;
+        } else if (this.layer === 'mid') {
+            // 中等亮度星
+            this.r = Math.random() * 1.0 + 0.6;
+            this.baseAlpha = Math.random() * 0.35 + 0.25;
+            this.twinkleAmp = Math.random() * 0.4 + 0.15;
+            this.twinkleSpeed = Math.random() * 0.04 + 0.012;
+        } else {
+            // 亮星 - 大且有光晕和衍射
+            this.r = Math.random() * 1.2 + 1.2;
+            this.baseAlpha = Math.random() * 0.15 + 0.6;
+            this.twinkleAmp = Math.random() * 0.35 + 0.15;
+            this.twinkleSpeed = Math.random() * 0.035 + 0.01;
+            this.spikeAngle = Math.random() * Math.PI; // 衍射十字角度
+        }
+    }
+    update() {
+        this.phase += this.twinkleSpeed;
+    }
+    draw(ctx) {
+        const flicker = Math.sin(this.phase) * this.twinkleAmp
+                       + Math.sin(this.phase * 2.7 + 1.3) * this.twinkleAmp * 0.4
+                       + Math.sin(this.phase * 5.1 + 3.7) * this.twinkleAmp * 0.15; // 三频闪烁模拟大气抖动
+        const alpha = Math.max(0, Math.min(1, this.baseAlpha + flicker));
+        const col = `rgba(${this.cr},${this.cg},${this.cb}`;
+
+        // 核心
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = `${col},${alpha})`;
+        ctx.fill();
+
+        if (this.layer === 'bright') {
+            // 高斯光晕 (多层)
+            const g1 = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 6);
+            g1.addColorStop(0, `${col},${alpha * 0.3})`);
+            g1.addColorStop(0.4, `${col},${alpha * 0.08})`);
+            g1.addColorStop(1, `${col},0)`);
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 6, 0, Math.PI * 2);
+            ctx.fillStyle = g1; ctx.fill();
+
+            // 外层柔光
+            const g2 = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 14);
+            g2.addColorStop(0, `${col},${alpha * 0.06})`);
+            g2.addColorStop(1, `${col},0)`);
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 14, 0, Math.PI * 2);
+            ctx.fillStyle = g2; ctx.fill();
+
+            // 衍射十字
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.spikeAngle);
+            const spikeLen = this.r * 10 + alpha * 6;
+            for (let a = 0; a < 4; a++) {
+                const rot = a * Math.PI / 2;
+                const sx = Math.cos(rot) * spikeLen;
+                const sy = Math.sin(rot) * spikeLen;
+                const sg = ctx.createLinearGradient(0, 0, sx, sy);
+                sg.addColorStop(0, `${col},${alpha * 0.5})`);
+                sg.addColorStop(0.3, `${col},${alpha * 0.12})`);
+                sg.addColorStop(1, `${col},0)`);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(sx, sy);
+                ctx.strokeStyle = sg;
+                ctx.lineWidth = 0.6;
+                ctx.stroke();
+            }
+            ctx.restore();
+        } else if (this.layer === 'mid' && this.r > 1.0) {
+            // 中等星微弱光晕
+            const gm = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 3.5);
+            gm.addColorStop(0, `${col},${alpha * 0.12})`);
+            gm.addColorStop(1, `${col},0)`);
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r * 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = gm; ctx.fill();
+        }
+    }
+}
+
+// —— 流星 ——
+class ShootingStar {
+    constructor() { this.reset(); }
+    reset() {
+        this.x = Math.random() * W * 0.8;
+        this.y = Math.random() * H * 0.35;
+        this.len = Math.random() * 150 + 80;
+        this.speed = Math.random() * 10 + 7;
+        this.life = 0;
+        this.maxLife = Math.random() * 35 + 25;
+        this.angle = Math.PI / 4 + (Math.random() - 0.5) * 0.4;
+        this.wait = Math.random() * 800 + 300;
+        this.active = false;
+        this.width = Math.random() * 1.5 + 0.8;
+    }
+    update() {
+        if (!this.active) { this.wait--; if (this.wait <= 0) this.active = true; return; }
+        this.life++;
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        if (this.life > this.maxLife) this.reset();
+    }
+    draw(ctx) {
+        if (!this.active) return;
+        const progress = this.life / this.maxLife;
+        const alpha = progress < 0.2 ? progress / 0.2 : Math.pow(1 - (progress - 0.2) / 0.8, 1.5);
+        const tailX = this.x - Math.cos(this.angle) * this.len;
+        const tailY = this.y - Math.sin(this.angle) * this.len;
+
+        // 流星尾迹
+        const grad = ctx.createLinearGradient(tailX, tailY, this.x, this.y);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.7, `rgba(200,220,255,${alpha * 0.4})`);
+        grad.addColorStop(1, `rgba(255,255,255,${alpha})`);
+        ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(this.x, this.y);
+        ctx.strokeStyle = grad; ctx.lineWidth = this.width; ctx.stroke();
+
+        // 流星头部发光
+        const headGlow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 4);
+        headGlow.addColorStop(0, `rgba(255,255,255,${alpha})`);
+        headGlow.addColorStop(0.5, `rgba(200,220,255,${alpha * 0.3})`);
+        headGlow.addColorStop(1, 'rgba(200,220,255,0)');
+        ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = headGlow; ctx.fill();
+    }
+}
+
+// 创建星星群 - 分层
+const bgStars = Array.from({ length: 600 }, () => new Star('bg'));      // 大量暗淡背景星
+const midStars = Array.from({ length: 120 }, () => new Star('mid'));    // 中等亮度
+const brightStars = Array.from({ length: 18 }, () => new Star('bright')); // 少量亮星
+const shootingStars = Array.from({ length: 4 }, () => new ShootingStar());
+
+// —— 银河星带 (预渲染到离屏 Canvas) ——
+let milkyWayBuffer = null;
+function renderMilkyWay() {
+    const buf = document.createElement('canvas');
+    buf.width = W; buf.height = H;
+    const bx = buf.getContext('2d');
+
+    // 银河的中心线：从左上到右下的一条弧形
+    bx.save();
+    bx.translate(W * 0.5, H * 0.5);
+    bx.rotate(-0.45);
+
+    // 银河弥散光带
+    const bandW = W * 1.6, bandH = H * 0.18;
+    for (let i = 0; i < 5; i++) {
+        const spread = bandH * (1 + i * 0.5);
+        const opacity = 0.025 - i * 0.004;
+        const gw = bx.createRadialGradient(0, 0, 0, 0, 0, Math.max(bandW, spread));
+        gw.addColorStop(0, `rgba(140,160,220,${opacity})`);
+        gw.addColorStop(0.3, `rgba(100,120,180,${opacity * 0.7})`);
+        gw.addColorStop(0.6, `rgba(70,80,140,${opacity * 0.3})`);
+        gw.addColorStop(1, 'rgba(0,0,0,0)');
+        bx.fillStyle = gw;
+        bx.fillRect(-bandW / 2, -spread / 2, bandW, spread);
+    }
+
+    // 银河中密集的微小星星
+    for (let i = 0; i < 1200; i++) {
+        const t = (Math.random() - 0.5) * bandW * 0.9;
+        const n = (Math.random() - 0.5);
+        const spread = bandH * 0.6 * Math.exp(-n * n * 3); // 高斯分布
+        const px = t;
+        const py = n * spread;
+        const sz = Math.random() * 0.8 + 0.15;
+        const a = Math.random() * 0.5 + 0.15;
+        const c = pickStarColor();
+        bx.beginPath();
+        bx.arc(px, py, sz, 0, Math.PI * 2);
+        bx.fillStyle = `rgba(${c.r},${c.g},${c.b},${a})`;
+        bx.fill();
+    }
+
+    bx.restore();
+
+    // 几个星云色块
+    const nebulae = [
+        { x: 0.2, y: 0.3, r: 0.15, color: [80, 50, 140, 0.035] },  // 紫色星云
+        { x: 0.7, y: 0.55, r: 0.12, color: [40, 70, 140, 0.03] },   // 蓝色星云
+        { x: 0.45, y: 0.6, r: 0.1, color: [140, 60, 80, 0.02] },    // 红色星云
+        { x: 0.85, y: 0.25, r: 0.08, color: [60, 100, 140, 0.025] }, // 青蓝星云
+        { x: 0.15, y: 0.7, r: 0.1, color: [100, 60, 120, 0.02] },   // 淡紫星云
+    ];
+    nebulae.forEach(nb => {
+        const nx = nb.x * W, ny = nb.y * H, nr = nb.r * Math.max(W, H);
+        const ng = bx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+        ng.addColorStop(0, `rgba(${nb.color[0]},${nb.color[1]},${nb.color[2]},${nb.color[3]})`);
+        ng.addColorStop(0.5, `rgba(${nb.color[0]},${nb.color[1]},${nb.color[2]},${nb.color[3] * 0.4})`);
+        ng.addColorStop(1, 'rgba(0,0,0,0)');
+        bx.fillStyle = ng;
+        bx.beginPath(); bx.arc(nx, ny, nr, 0, Math.PI * 2); bx.fill();
+    });
+
+    milkyWayBuffer = buf;
+}
+
+let starAnimId;
+function animateStars() {
+    starCtx.clearRect(0, 0, W, H);
+
+    // 绘制预渲染的银河+星云
+    if (!milkyWayBuffer) renderMilkyWay();
+    starCtx.drawImage(milkyWayBuffer, 0, 0);
+
+    // 绘制各层星星
+    bgStars.forEach(s => { s.update(); s.draw(starCtx); });
+    midStars.forEach(s => { s.update(); s.draw(starCtx); });
+    brightStars.forEach(s => { s.update(); s.draw(starCtx); });
+    shootingStars.forEach(s => { s.update(); s.draw(starCtx); });
+
+    starAnimId = requestAnimationFrame(animateStars);
+}
+
+/* ==========================================================
+   第一页 — 花瓣组成的"贾"字
+   ========================================================== */
+const petalCvs = document.getElementById('petalCanvas');
+const petalCtx = petalCvs.getContext('2d');
+
+// 初始化大小
+resizeAll();
+window.addEventListener('resize', resizeAll);
+
+// 采样"贾"字的像素位置
+function sampleCharPixels(char, fontSize, cx, cy) {
+    const c = document.createElement('canvas');
+    const x = c.getContext('2d');
+    c.width = W; c.height = H;
+    x.fillStyle = '#fff';
+    x.font = `bold ${fontSize}px "PingFang SC","Microsoft YaHei","SimSun",serif`;
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(char, cx, cy);
+    const d = x.getImageData(0, 0, W, H).data;
+    const pts = [], step = 6;
+    for (let y = 0; y < H; y += step)
+        for (let xx = 0; xx < W; xx += step)
+            if (d[(y * W + xx) * 4 + 3] > 128) pts.push({ x: xx, y });
+    return pts;
+}
+
+const charPoints = sampleCharPixels('贾', Math.min(W, H) * 0.38, W / 2, H / 2);
+
+// —— 花瓣粒子 ——
+class Petal {
+    constructor(tx, ty) {
+        this.tx = tx; this.ty = ty;
+        // 从随机位置飞入
+        this.x = Math.random() * W; this.y = Math.random() * H;
+        this.r = Math.random() * 5 + 4;
+        this.angle = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.03;
+        // 粉色系列
+        const hue = 340 + Math.random() * 30;
+        const sat = 70 + Math.random() * 25;
+        const lit = 72 + Math.random() * 18;
+        this.color = `hsl(${hue},${sat}%,${lit}%)`;
+        this.alpha = 0.85 + Math.random() * 0.15;
+        this.arriveSpeed = 0.04 + Math.random() * 0.02;
+        // 散开状态
+        this.scattered = false;
+        this.vx = 0; this.vy = 0;
+        this.gravity = 0.04 + Math.random() * 0.03;
+        this.fadeSpeed = 0.006 + Math.random() * 0.006;
+    }
+    update() {
+        this.angle += this.rotSpeed;
+        if (this.scattered) {
+            this.x += this.vx; this.y += this.vy;
+            this.vy += this.gravity; this.vx *= 0.995;
+            this.alpha -= this.fadeSpeed;
+            return;
+        }
+        // 缓动飞向目标位置
+        this.x += (this.tx - this.x) * this.arriveSpeed;
+        this.y += (this.ty - this.y) * this.arriveSpeed;
+    }
+    scatter(cx, cy) {
+        this.scattered = true;
+        const dx = this.x - cx, dy = this.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = 3 + Math.random() * 5;
+        this.vx = (dx / dist) * force + (Math.random() - 0.5) * 3;
+        this.vy = (dy / dist) * force + (Math.random() - 0.5) * 3 - 2;
+    }
+    draw(ctx) {
+        if (this.alpha <= 0) return;
+        ctx.save();
+        ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        // 花瓣形状
+        ctx.beginPath();
+        ctx.moveTo(0, -this.r);
+        ctx.bezierCurveTo(this.r * 0.8, -this.r * 0.8, this.r, this.r * 0.3, 0, this.r);
+        ctx.bezierCurveTo(-this.r, this.r * 0.3, -this.r * 0.8, -this.r * 0.8, 0, -this.r);
+        ctx.fillStyle = this.color; ctx.fill();
+        // 花瓣纹路
+        ctx.beginPath();
+        ctx.moveTo(0, -this.r * 0.6); ctx.lineTo(0, this.r * 0.6);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 0.5; ctx.stroke();
+        ctx.restore();
+    }
+}
+
+const petals = charPoints.map(p => new Petal(p.x, p.y));
+// 额外散点花瓣 — 让字看起来更有层次
+for (let i = 0; i < 40; i++) {
+    const rp = charPoints[Math.floor(Math.random() * charPoints.length)];
+    const p = new Petal(rp.x + (Math.random() - 0.5) * 20, rp.y + (Math.random() - 0.5) * 20);
+    p.r = Math.random() * 3 + 2; p.alpha = 0.4 + Math.random() * 0.3;
+    petals.push(p);
+}
+
+let petalAnimId;
+function animatePetals() {
+    petalCtx.clearRect(0, 0, petalCvs.width, petalCvs.height);
+    let allGone = true;
+    petals.forEach(p => { p.update(); p.draw(petalCtx); if (p.alpha > 0) allGone = false; });
+    if (allGone && isScattering) {
+        cancelAnimationFrame(petalAnimId);
+        finishTransition();
+        return;
+    }
+    petalAnimId = requestAnimationFrame(animatePetals);
+}
+
+// 启动动画
+animateStars();
+animatePetals();
+
+/* ==========================================================
+   点击 — 花瓣散开 → 切换第二页
+   ========================================================== */
+let isScattering = false;
+function scatterAndTransition() {
+    if (isScattering) return;
+    isScattering = true;
+    document.querySelector('.click-hint').style.opacity = '0';
+    petals.forEach(p => p.scatter(W / 2, H / 2));
+    starCvs.style.transition = 'opacity 1.5s ease';
+    starCvs.style.opacity = '0';
+    // 安全兜底：3秒后强制切页
+    setTimeout(() => { if (isScattering) finishTransition(); }, 3000);
+}
+
+function finishTransition() {
+    isScattering = false;
+    cancelAnimationFrame(starAnimId);
+    cancelAnimationFrame(petalAnimId);
+    document.getElementById('page1').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    document.getElementById('page2').classList.add('show');
+    createPage2Petals();
+}
+
+/* ==========================================================
+   第二页 — 照片轮播
+   ========================================================== */
+let currentSlide = 0;
+const totalSlides = 4;
+const track = document.getElementById('carouselTrack');
+const dots = document.querySelectorAll('.carousel-dot');
+
+function goToSlide(i) {
+    currentSlide = ((i % totalSlides) + totalSlides) % totalSlides;
+    track.style.transform = `translateX(-${currentSlide * 100}%)`;
+    dots.forEach((d, idx) => d.classList.toggle('active', idx === currentSlide));
+}
+function slideBy(dir) { goToSlide(currentSlide + dir); }
+setInterval(() => goToSlide(currentSlide + 1), 4000);
+
+/* ==========================================================
+   第二页 — 交替文字
+   ========================================================== */
+const texts = ['贾贾天天开心', '贾贾是人间四月的烟火'];
+let textIdx = 0;
+const loveText = document.getElementById('loveText');
+setInterval(() => {
+    loveText.classList.remove('fade-in');
+    loveText.classList.add('fade-out');
+    setTimeout(() => {
+        textIdx = (textIdx + 1) % texts.length;
+        loveText.textContent = texts[textIdx];
+        loveText.classList.remove('fade-out');
+        loveText.classList.add('fade-in');
+    }, 600);
+}, 3500);
+
+/* ==========================================================
+   第二页 — 飘落花瓣
+   ========================================================== */
+function createPage2Petals() {
+    const pg = document.getElementById('page2');
+    const em = ['🌸','🩷','✿','❀','🌺'];
+    for (let i = 0; i < 18; i++) {
+        const el = document.createElement('div');
+        el.className = 'petal2';
+        el.textContent = em[i % em.length];
+        el.style.left = Math.random() * 100 + '%';
+        el.style.fontSize = (16 + Math.random() * 14) + 'px';
+        el.style.animationDuration = (7 + Math.random() * 7) + 's';
+        el.style.animationDelay = (Math.random() * 10) + 's';
+        pg.appendChild(el);
+    }
+}
+</script>
+</body>
+</html>
