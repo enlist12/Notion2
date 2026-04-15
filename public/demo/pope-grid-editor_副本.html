@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>POPE Grid Editor</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: -apple-system, sans-serif; background: #f5f5f5; }
+        .node-card { cursor: grab; }
+        .grid-container { 
+            background-image: linear-gradient(gray 1px, transparent 1px), linear-gradient(90deg, gray 1px, transparent 1px);
+            background-size: 150px 150px;
+            background-position: -1px -1px;
+        }
+        .no-select { user-select: none; -webkit-user-select: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+        
+        const CELL_SIZE = 150;
+        const GRID_COLS = 10;
+        const GRID_ROWS = 10;
+        
+        const TEMPLATES = {
+            'Background': { pinned: true, fields: [
+                { name: 'Template name', subname: '', example: 'Please give this template a name', dataType: '', value: '' },
+                { name: 'Requester', subname: '', example: 'Your name', dataType: '', value: '' },
+                { name: 'Country', subname: '', example: 'BR', dataType: '', value: '' },
+                { name: 'Department', subname: '', example: 'Pax', dataType: '', value: '' },
+                { name: 'User', subname: '', example: 'Mobility：Driver/Passenger；Food：Food User/Store/Rider', dataType: '', value: '' },
+                { name: 'Expected Launch Date', subname: '', example: '2026.2.10', dataType: '', value: '' },
+                { name: 'Priority', subname: '', example: 'P0/P1/P2', dataType: '', value: '' },
+                { name: 'Benefits', subname: 'Before', example: 'Currently configuring 4 POPE activities manually takes about 8 minutes each', dataType: '', value: '' },
+                { name: 'Benefits', subname: 'After', example: 'Enabling all 4 templates could save ~42 hours per week', dataType: '', value: '' },
+                { name: 'Reference Canvas', subname: 'Event ID', example: '1203337', dataType: '', value: '' },
+                { name: 'Canvas Automatic Approval', subname: 'Open this function', example: 'Yes/No', dataType: '', value: '' }
+            ]},
+            'Event basic info': { pinned: true, fields: [
+                { name: 'Country', subname: '', example: 'MX', dataType: '', value: '' },
+                { name: 'Event name', subname: '', example: '', dataType: '', value: '' },
+                { name: 'City', subname: '', example: '55000272 or ALL', dataType: '', value: '' },
+                { name: 'Time Zone', subname: '', example: 'UTC-03:00', dataType: '', value: '' },
+                { name: 'Product line', subname: '', example: 'PAX', dataType: '', value: '' },
+                { name: 'Duration (start_time)', subname: '', example: '2025-07-31 00:00:00', dataType: '', value: '' },
+                { name: 'Duration (end_time)', subname: '', example: '2025-08-02 23:59:59', dataType: '', value: '' },
+                { name: 'Budget team', subname: '', example: 'PAX Lifecycle', dataType: '', value: '' },
+                { name: 'Event Budget ($)', subname: '', example: '1000 BRL', dataType: '', value: '' },
+                { name: 'Purpose of Event', subname: '', example: 'Activation', dataType: '', value: '' },
+                { name: 'Event frequency restrictions (N times/M days)', subname: '', example: 'unlimited: 0/0', dataType: '', value: '' }
+            ]},
+            'Target Group': { isTargetGroup: true, fields: [
+                { name: 'Tag_id', subname: '', example: '1000352536', dataType: '', value: '' },
+                { name: 'Valid Target Group Rules', subname: '', example: 'All steps must be verified', dataType: '', value: '' }
+            ]},
+            'User Event': { fields: [
+                { name: 'Event', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Event Attributes', subname: '', example: '', dataType: '', value: '' },
+                { name: 'User Characteristics', subname: '', example: '', dataType: '', value: '' }
+            ]},
+            'Delay of executing task': { fields: [
+                { name: 'Relative Time', subname: 'Days', example: '0', dataType: '', value: '' },
+                { name: 'Relative Time', subname: 'Hours', example: '3', dataType: '', value: '' },
+                { name: 'Relative Time', subname: 'Mins', example: '4', dataType: '', value: '' },
+                { name: 'Absolute Time', subname: 'Day', example: '0', dataType: '', value: '' },
+                { name: 'Absolute Time', subname: 'Time', example: '21:01:00', dataType: '', value: '' }
+            ]},
+            'Task Start Time': { fields: [
+                { name: 'Start time', subname: '', example: '2025-07-31 05:00:00', dataType: '', value: '' },
+                { name: 'Use loop timer', subname: '', example: 'Check/Uncheck', dataType: '', value: '' },
+                { name: 'Every N Day', subname: '', example: '1', dataType: '', value: '' },
+                { name: 'Send time', subname: '', example: '17:23:43', dataType: '', value: '' },
+                { name: 'End time', subname: '', example: '2026-01-10 17:23:43', dataType: '', value: '' }
+            ]},
+            'Group Conditions': { fields: [
+                { name: 'Excluded Group', subname: '', example: '1000221454', dataType: '', value: '' },
+                { name: 'Selected Group', subname: '', example: '1000221454', dataType: '', value: '' }
+            ]},
+            'Time Conditions': { fields: [
+                { name: 'Effective dates during validity period', subname: 'Date', example: 'Yes or No', dataType: '', value: '' },
+                { name: 'Effective dates during validity period', subname: 'Start Date', example: '2026-01-26 00:00:00', dataType: '', value: '' },
+                { name: 'Effective dates during validity period', subname: 'End Date', example: '2026-02-26 00:00:00', dataType: '', value: '' },
+                { name: 'Daily effective time during validity period', subname: 'Time', example: 'Yes or No', dataType: '', value: '' },
+                { name: 'Daily effective time during validity period', subname: 'Start Time', example: '03:00:02', dataType: '', value: '' },
+                { name: 'Daily effective time during validity period', subname: 'End Time', example: '03:04:02', dataType: '', value: '' }
+            ]},
+            'DiDi Coupon': { fields: [
+                { name: 'Coupon Batch Validity Period', subname: 'Start date', example: '2026-01-10 00:00:07', dataType: '', value: '' },
+                { name: 'Coupon Batch Validity Period', subname: 'End date', example: '2026-01-11 00:00:07', dataType: '', value: '' },
+                { name: 'Coupon Issuance Budget', subname: '', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Budget Department', subname: '', example: 'Default', dataType: '', value: '' },
+                { name: 'Coupon Name', subname: '', example: 'HeroVoucher', dataType: '', value: '' },
+                { name: 'Coupon Validity Period', subname: '', example: 'Same as batch', dataType: '', value: '' },
+                { name: 'Time Limit for Coupon Use', subname: '', example: 'No limit', dataType: '', value: '' },
+                { name: 'Cross - category Coupon?', subname: '', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Product Line', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Coupon type', subname: '', example: 'discounted/fixed', dataType: '', value: '' },
+                { name: 'Discounted Coupon Value', subname: 'Fixed amount', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Discount', example: '0.5', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Cap limit', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Eligibility Threshold Requirement', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Trip Distance Limit', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Applicable City Limit', subname: '', example: 'Yes', dataType: '', value: '' },
+                { name: 'Geofence Limit', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Mark coupon for new users', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Risk Control Strategy', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'The Maximum number of Coupon you want to set in the template', subname: '', example: '5', dataType: '', value: '', isMaxCoupon: true }
+            ]},
+            'Apollo Split': { fields: [
+                { name: 'Group_ratio (control%)', subname: '', example: '90', dataType: '', value: '' },
+                { name: 'Group_ratio (treatment%)', subname: '', example: '10', dataType: '', value: '' }
+            ]},
+            'Email': { useFollowTemplateKey: true, fields: [
+                { name: 'Template Key', subname: '', example: '100080002000131_xxx', dataType: 'excel_upload', value: '' },
+                { name: 'Basic Information', subname: 'Business Line', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'User Role', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Content Category', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Language', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Sender Email', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Sender', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Recipient Email', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Email Subject', example: '', dataType: '', value: '' },
+                { name: 'Email Configuration', subname: 'Email Body', example: '', dataType: '', value: '' }
+            ]},
+            'SMS': { useFollowTemplateKey: true, fields: [
+                { name: 'Template Key', subname: '', example: '100080002000131_xxx', dataType: 'excel_upload', value: '' },
+                { name: 'Basic Information', subname: 'Business Line', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'User Role', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Content Category', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Include custom placeholder?', example: '', dataType: '', value: '' },
+                { name: 'Language Configuration', subname: 'SMS Text', example: '', dataType: '', value: '' },
+                { name: 'Valid Delivery Window', subname: '', example: '60', dataType: '', value: '' }
+            ]},
+            'Special bubble for issuing coupons after call': { fields: [] },
+            'Empty Action': { fields: [] },
+            'Request with Coupon': { fields: [
+                { name: 'Coupon Batch Validity Period', subname: 'Start date', example: '2026-01-10 00:00:07', dataType: '', value: '' },
+                { name: 'Coupon Batch Validity Period', subname: 'End date', example: '2026-01-11 00:00:07', dataType: '', value: '' },
+                { name: 'Coupon Issuance Budget', subname: '', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Budget Department', subname: '', example: 'A. Default\nB. Custom-XXXX', dataType: '', value: '' },
+                { name: 'Coupon name', subname: '', example: 'HeroVoucher', dataType: '', value: '' },
+                { name: 'Coupon Validity Period', subname: '', example: 'A. Same as coupon batch validity\nB. Expires at 23:59:59 on the same day of coupon claim\nC. Expires X day(s) after the coupon claim at 23:59:59', dataType: '', value: '' },
+                { name: 'Time Limit for Coupon Use', subname: '', example: 'A. Limit use time-XXXX\nB. No limit', dataType: '', value: '' },
+                { name: 'Cross - category Coupon?', subname: '', example: 'A. Yes\nB. No', dataType: '', value: '' },
+                { name: 'Product Line', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Coupon type', subname: '', example: 'discounted/fixed', dataType: '', value: '' },
+                { name: 'Discounted Coupon Value', subname: 'Fixed amount', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Discount ( x% off)', example: '0.5', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Cap limit', example: 'BRL 100', dataType: '', value: '' },
+                { name: 'Eligibility Threshold Requirement', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Trip Distance Limit', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Applicable City Limit', subname: '', example: 'Yes', dataType: '', value: '' },
+                { name: 'Geofence Limit', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Mark coupon for new users', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'Risk Control Strategy', subname: '', example: 'No', dataType: '', value: '' },
+                { name: 'The Maximum number of Coupon you want to set in the template', subname: '', example: 'Maximum number of coupons to upload in Excel\ne.g. 5', dataType: '', value: '', isMaxCoupon: true },
+                { name: 'Coupon Rules During Bubble Phase（When there is a large amount coupon in the wallet or the coupon is estimated unable to be used during bubble phase）', subname: '', example: 'Not Send', dataType: '', value: '' },
+                { name: 'Send Push', subname: '', example: 'Yes or No', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Push Title', example: '', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Push Subtitle', example: 'HeroVoucher', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Push Content', example: 'Default', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Message number image', example: '', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Click external push to jump to', example: 'Message center / Content link', dataType: '', value: '' },
+                { name: 'Send Push', subname: 'Content link', example: '', dataType: '', value: '' },
+                { name: 'Send SMS', subname: '', example: 'Yes or No', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'Business Line', example: 'Ride', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'User Role', example: 'Rider', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'Content Category', example: 'Survey', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'Include custom placeholder(s)?', example: 'Yes or No', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'SMS Text', example: '', dataType: '', value: '' },
+                { name: 'Send SMS', subname: 'Valid Delivery Window', example: '60', dataType: '', value: '' },
+                { name: 'Recall the coupon when the order is canceled', subname: '', example: 'Yes or No', dataType: '', value: '' }
+            ]},
+            'Push text(APP)': { useFollowTemplateKey: true, fields: [
+                { name: 'Template Key', subname: '', example: '100080002000131_1764817285223_8742', dataType: 'excel_upload', value: '' },
+                { name: 'Basic Information', subname: 'Business Line', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'User Role', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Content Category', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'App(s) to Receive Message', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Message No./Name', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Hide message account name in notification bar?', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Include custom placeholder(s)?', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Title', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Body', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Upload Image (In-app Push)', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Push Redirect Link', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Link Type', example: 'e.g., Custom Link', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Specific link', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Send a Test Message', example: 'Yes/No', dataType: '', value: '' }
+            ]},
+            'WhatsAPP Message': { useFollowTemplateKey: true, fields: [
+                { name: 'Template Key', subname: '', example: '100080002000131_1764817285223_8742', dataType: 'excel_upload', value: '' },
+                { name: 'Basic Information', subname: 'Business Line', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'User Role', example: '', dataType: '', value: '' },
+                { name: 'Basic Information', subname: 'Content Category', example: '', dataType: '', value: '' },
+                { name: 'WhatsApp Configuration', subname: 'Specify account', example: '', dataType: '', value: '' },
+                { name: 'WhatsApp Configuration', subname: 'Language', example: '', dataType: '', value: '' },
+                { name: 'Master Template-Header-Type', subname: '', example: 'None/Text/Image/Video/Document', dataType: '', value: '' },
+                { name: 'Master Template-Header', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Master Template-Body', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Master Template-Footer', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Master Template', subname: 'Button', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'Master Template', subname: 'Quick Reply', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'The Maximum number of  Quick Reply you want to set in the template', subname: '', example: '', dataType: '', value: '', isMaxQuickReply: true },
+                { name: 'Quick Reply-Action Type', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Quick Reply-Button Text', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Quick Reply-Reply Content', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Master Template', subname: 'Call to Action', example: 'Yes/No', dataType: '', value: '' },
+                { name: 'The Maximum number of  Call to Action you want to set in the template', subname: '', example: '', dataType: '', value: '', isMaxCallToAction: true },
+                { name: 'Call to Action-Action Type', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Call to Action-Button Text', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Call to Action-URL Type', subname: '', example: '', dataType: '', value: '' },
+                { name: 'Call to Action-URL', subname: '', example: '', dataType: '', value: '' }
+            ]},
+            'Custom Node': { isCustom: true, fields: [
+                { name: '', subname: '', example: '', dataType: '', value: '' }
+            ]}
+        };
+
+        const TEMPLATE_DATA = {
+            "Apollo Split": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Group_ratio (control%)",
+                        "prompt": "20"
+                    },
+                    {
+                        "id": "Group_ratio (treatment%)",
+                        "prompt": "80"
+                    }
+                ]
+            },
+            "Delay of executing task": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Days",
+                        "prompt": "0"
+                    },
+                    {
+                        "id": "Hours",
+                        "prompt": "2"
+                    },
+                    {
+                        "id": "Mins",
+                        "prompt": "0"
+                    }
+                ]
+            },
+            "DiDi Coupon": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Applicable City Limit",
+                        "prompt": "522220400,52310300\n-Enter the city ID. \n-For multiple cities, separate with commas. \n-For nationwide events, enter \"ALL\"."
+                    },
+                    {
+                        "id": "Cap limit",
+                        "prompt": "3"
+                    },
+                    {
+                        "id": "Coupon Issuance Budget ($)",
+                        "prompt": "1000000"
+                    },
+                    {
+                        "id": "Coupon Name",
+                        "prompt": "15%OFF"
+                    },
+                    {
+                        "id": "Coupon type",
+                        "prompt": "discount/fixed"
+                    },
+                    {
+                        "id": "Discount ( x% off)",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Fixed amount",
+                        "prompt": "10"
+                    },
+                    {
+                        "id": "Product Line",
+                        "prompt": ""
+                    }
+                ]
+            },
+            "Email": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Email Subject",
+                        "prompt": "Vem viajar de 99"
+                    },
+                    {
+                        "id": "HTML",
+                        "prompt": "https://s3-us01.didiglobal.com/silver-bullet-img/2026-01-06/HkZ7o7/DOCTYPE_html_PUBLIC.docx"
+                    },
+                    {
+                        "id": "Language",
+                        "prompt": "pt-BR"
+                    },
+                    {
+                        "id": "Recipient Email",
+                        "prompt": "voude99@99app.com"
+                    },
+                    {
+                        "id": "Sender",
+                        "prompt": "Vou de 99"
+                    },
+                    {
+                        "id": "Template Key",
+                        "prompt": "10008000200013117561143990157312"
+                    }
+                ]
+            },
+            "Event basic info": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Budget team",
+                        "prompt": "Please fill in according to the options available in the Budget Allocation dropdown in the POPE system, using \"/\" to separate different levels, \ne.g., Engagement/Marketplace/PAX Marketplace Manual"
+                    },
+                    {
+                        "id": "City",
+                        "prompt": "55000001,55000002\n-Enter the city ID. \n-For multiple cities, separate with commas. \n-For nationwide events, enter \"ALL\"."
+                    },
+                    {
+                        "id": "Country",
+                        "prompt": "MX"
+                    },
+                    {
+                        "id": "Duration (end_time)",
+                        "prompt": "2025-08-02 23:59:59"
+                    },
+                    {
+                        "id": "Duration (start_time)",
+                        "prompt": "2025-07-31 00:00:00"
+                    },
+                    {
+                        "id": "Event Budget ($)",
+                        "prompt": "100"
+                    },
+                    {
+                        "id": "Event Budget(R$)",
+                        "prompt": "1000"
+                    },
+                    {
+                        "id": "Event frequency restrictions (N times/M days)",
+                        "prompt": "1/0\n -unlimitd: 0/0\n -once during event period: 1/0\n -once per day:1/1\n -M time(s) every N day(s): N/M"
+                    },
+                    {
+                        "id": "Event name",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Inventory Plan ID",
+                        "prompt": "1754320120805"
+                    },
+                    {
+                        "id": "Product line",
+                        "prompt": "Enter the business ID\n (find in: https://cooper.didichuxing.com/knowledge/share/page/jwLMmfPWBdHl#)"
+                    },
+                    {
+                        "id": "Purpose of Event",
+                        "prompt": "Fill in accroding to the options available in the Purpose of Event field int the POPE system\nUse \"/\" to separate different levels\ne.g., Lifecycle Operations/Churn PAX"
+                    },
+                    {
+                        "id": "Target Group Category",
+                        "prompt": "EFO (0)\n-For multiple target group category, separate with commas."
+                    },
+                    {
+                        "id": "Template name",
+                        "prompt": "LC Setting Request with Coupon"
+                    },
+                    {
+                        "id": "Time Zone",
+                        "prompt": "UTC-03:00"
+                    }
+                ]
+            },
+            "Group condition": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Excluded Group",
+                        "prompt": "1000221454"
+                    },
+                    {
+                        "id": "Selected Group",
+                        "prompt": "1000221454"
+                    }
+                ]
+            },
+            "Push text(APP)": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Body",
+                        "prompt": "Chama a rapaziada e bora pra rua! Escolha seu destino e aproveite seu desconto> (Válido até ${coupon_earliest_time} e limitado a ${coupon_discount_cap} de desconto. Cupom intransferível)."
+                    },
+                    {
+                        "id": "Page ID",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Page type",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Push Redirect Link",
+                        "prompt": "https://passageiros.99app.com/clube-99"
+                    },
+                    {
+                        "id": "Template Key",
+                        "prompt": "10008000200013117561143990157312"
+                    },
+                    {
+                        "id": "Title",
+                        "prompt": "Você merece: ${coupon_max_discount_percent} OFF"
+                    },
+                    {
+                        "id": "Topic Name",
+                        "prompt": ""
+                    }
+                ]
+            },
+            "Request with coupon": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Cap limit",
+                        "prompt": "80"
+                    },
+                    {
+                        "id": "Coupon Issuance Budget ($)",
+                        "prompt": "1000"
+                    },
+                    {
+                        "id": "Coupon name",
+                        "prompt": "15% OFF"
+                    },
+                    {
+                        "id": "Coupon type",
+                        "prompt": "Select \"discount\" or \"fixed\" in the dropdown menu"
+                    },
+                    {
+                        "id": "Discount ( x% off)",
+                        "prompt": "30"
+                    },
+                    {
+                        "id": "Fixed amount",
+                        "prompt": "10"
+                    },
+                    {
+                        "id": "Product Line",
+                        "prompt": "240\n-Enter the phoenix ID, find in: https://cooper.didichuxing.com/knowledge/share/page/jwLMmfPWBdHl#\n-For multiple product lines, separate with commas."
+                    },
+                    {
+                        "id": "Push Content",
+                        "prompt": "Conéctate y pide tus solicitudes pagando menos."
+                    },
+                    {
+                        "id": "Push Subtitle",
+                        "prompt": "¡Hasta 20% OFF para moverte! 🚗"
+                    },
+                    {
+                        "id": "Push Title",
+                        "prompt": "¡Hasta 20% OFF para moverte! 🚗"
+                    },
+                    {
+                        "id": "Send Push",
+                        "prompt": "Select \"Yes\" or \"No\" in the dropdown menu"
+                    },
+                    {
+                        "id": "Trip Type Limit",
+                        "prompt": "Please fill in \"Only Real-time Trips\""
+                    }
+                ]
+            },
+            "SMS": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "SMS Text",
+                        "prompt": "A 99Food está chegando em Macapá! Ganhe R$150 indicando um restaurante no app da 99, na aba Food. Aproveite!"
+                    },
+                    {
+                        "id": "Template Key",
+                        "prompt": "10008000200013117561143990157312"
+                    }
+                ]
+            },
+            "Target Group": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Tag_id",
+                        "prompt": "1000364179"
+                    },
+                    {
+                        "id": "Valid Target Group Rules",
+                        "prompt": "Select in the dropdown menu"
+                    }
+                ]
+            },
+            "Task start time": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "End time",
+                        "prompt": "2025-08-02 20:00:00"
+                    },
+                    {
+                        "id": "Every N Day",
+                        "prompt": "1"
+                    },
+                    {
+                        "id": "Send time",
+                        "prompt": "12:00"
+                    },
+                    {
+                        "id": "Start time",
+                        "prompt": "2025-07-31 06:00:00"
+                    },
+                    {
+                        "id": "Use loop timer",
+                        "prompt": "Check/Uncheck"
+                    }
+                ]
+            },
+            "Time Condition": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Date",
+                        "prompt": "Select \"Yes\" or \"No\" in the dropdown menu"
+                    },
+                    {
+                        "id": "End Date",
+                        "prompt": "2026-02-26 00:00:00"
+                    },
+                    {
+                        "id": "End Time",
+                        "prompt": "03:04:02"
+                    },
+                    {
+                        "id": "Start Date",
+                        "prompt": "2026-01-26"
+                    },
+                    {
+                        "id": "Start Time",
+                        "prompt": "03:00:02"
+                    },
+                    {
+                        "id": "Time",
+                        "prompt": "Select \"Yes\" or \"No\" in the dropdown menu"
+                    }
+                ]
+            },
+            "User Event": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Product Line",
+                        "prompt": "Enter the product ID\n (find in: https://cooper.didichuxing.com/knowledge/share/page/jwLMmfPWBdHl#)"
+                    }
+                ]
+            },
+            "WhatsAPP Message": {
+                "description": "",
+                "fields": [
+                    {
+                        "id": "Button",
+                        "prompt": "Yes/No"
+                    },
+                    {
+                        "id": "Call to Action",
+                        "prompt": "Check/Uncheck"
+                    },
+                    {
+                        "id": "Call to Action-Action Type",
+                        "prompt": "Must enter Visit Website. Other types are currently not supported"
+                    },
+                    {
+                        "id": "Call to Action-Button Text",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Call to Action-URL",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Call to Action-URL Type",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Master Template-Body",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Master Template-Footer",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Master Template-Header",
+                        "prompt": "Enter text for 'Text' type, or provide a QB link for 'Image/Video/Document' types. Leave blank if 'None' is selected."
+                    },
+                    {
+                        "id": "Master Template-Header Type",
+                        "prompt": "Please fill out the following fields.\nNone,Text,Image,Video,Document"
+                    },
+                    {
+                        "id": "Quick Reply",
+                        "prompt": "Check/Uncheck"
+                    },
+                    {
+                        "id": "Quick Reply-Action Type",
+                        "prompt": "Please select one from the following options: Custom, No longer receive in the near future, Unsubscribe"
+                    },
+                    {
+                        "id": "Quick Reply-Button Text",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Quick Reply-Reply Content",
+                        "prompt": ""
+                    },
+                    {
+                        "id": "Template Key",
+                        "prompt": "10008000200013117561143990157312"
+                    }
+                ]
+            }
+        };
+        
+        const genId = () => 'id_' + Math.random().toString(36).substr(2, 9);
+        
+        function App() {
+            const [nodes, setNodes] = useState([]);
+            const [selectedId, setSelectedId] = useState(null);
+            const [dragState, setDragState] = useState(null);
+            const [wasDragged, setWasDragged] = useState(false);
+            const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
+            const mainRef = useRef(null);
+            
+            const handleSave = () => {
+                setSelectedId(null);
+            };
+            
+            const closeModal = () => {
+                setSelectedId(null);
+                setShowIncompleteWarning(false);
+            };
+            
+            useEffect(() => {
+                setNodes([
+                    { id: 'bg', nodeName: 'Background', gridX: 0, gridY: -2, pinned: true, fields: TEMPLATES['Background'].fields.map(f => ({...f})) },
+                    { id: 'evt', nodeName: 'Event basic info', gridX: 1, gridY: -2, pinned: true, fields: TEMPLATES['Event basic info'].fields.map(f => ({...f})) },
+                    { id: 'tg', nodeName: 'Target Group', gridX: 0, gridY: 0, fields: TEMPLATES['Target Group'].fields.map(f => ({...f})), isTargetGroup: true }
+                ]);
+            }, []);
+            
+            useEffect(() => {
+                const handleWindowMouseMove = (e) => {
+                    if (!dragState || !mainRef.current) return;
+                    const deltaX = Math.abs(e.clientX - dragState.startX);
+                    const deltaY = Math.abs(e.clientY - dragState.startY);
+                    if (deltaX > 5 || deltaY > 5) {
+                        setWasDragged(true);
+                    }
+                    const deltaGridX = e.clientX - dragState.startX;
+                    const deltaGridY = e.clientY - dragState.startY;
+                    const newGridX = dragState.origGridX + Math.round(deltaGridX / CELL_SIZE);
+                    const newGridY = dragState.origGridY + Math.round(deltaGridY / CELL_SIZE);
+                    const gx = Math.max(0, Math.min(GRID_COLS-1, newGridX));
+                    const gy = Math.max(0, Math.min(GRID_ROWS-1, newGridY));
+                    if (!nodes.some(n => n.id !== dragState.id && !n.pinned && n.gridX === gx && n.gridY === gy)) {
+                        setNodes(prev => prev.map(n => n.id === dragState.id ? {...n, gridX: gx, gridY: gy} : n));
+                    }
+                };
+                const handleWindowMouseUp = () => {
+                    setDragState(null);
+                    setTimeout(() => setWasDragged(false), 0);
+                };
+                window.addEventListener('mousemove', handleWindowMouseMove);
+                window.addEventListener('mouseup', handleWindowMouseUp);
+                return () => {
+                    window.removeEventListener('mousemove', handleWindowMouseMove);
+                    window.removeEventListener('mouseup', handleWindowMouseUp);
+                };
+            }, [dragState, nodes]);
+            
+            const findEmpty = () => {
+                for (let y = 0; y < GRID_ROWS; y++) {
+                    for (let x = 0; x < GRID_COLS; x++) {
+                        if (!nodes.some(n => !n.pinned && n.gridX === x && n.gridY === y)) return {x, y};
+                    }
+                }
+                return {x:1, y:1};
+            };
+            
+            const handleTemplateDrag = (e, name) => {
+                e.dataTransfer.setData('template', name);
+            };
+            
+            const addCustomNode = () => {
+                const pos = findEmpty();
+                const newNode = {
+                    id: genId(),
+                    nodeName: 'Custom Node',
+                    gridX: pos.x,
+                    gridY: pos.y,
+                    fields: [{ name: '', subname: '', example: '', dataType: '', value: '' }],
+                    isCustom: true
+                };
+                setNodes(prev => [...prev, newNode]);
+            };
+            
+            const handleNodeDown = (e, id) => {
+                const node = nodes.find(n => n.id === id);
+                if (!node || node.pinned || node.isTargetGroup) return;
+                e.stopPropagation();
+                setDragState({ 
+                    id, 
+                    startX: e.clientX, 
+                    startY: e.clientY, 
+                    origGridX: node.gridX, 
+                    origGridY: node.gridY,
+                    isDragging: false
+                });
+            };
+            
+            const handleDrop = (e) => {
+                e.preventDefault();
+                const name = e.dataTransfer.getData('template');
+                if (!name || !TEMPLATES[name]) return;
+                const rect = mainRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left - 60;
+                const y = e.clientY - rect.top - 30;
+                const gx = Math.max(0, Math.min(GRID_COLS-1, Math.round(x/CELL_SIZE)));
+                const gy = Math.max(0, Math.min(GRID_ROWS-1, Math.round(y/CELL_SIZE)));
+                const occupied = nodes.some(n => !n.pinned && n.gridX === gx && n.gridY === gy);
+                const pos = occupied ? findEmpty() : {x: gx, y: gy};
+                const template = TEMPLATES[name];
+                setNodes(prev => [...prev, { 
+                    id: genId(), 
+                    nodeName: name, 
+                    gridX: pos.x, 
+                    gridY: pos.y, 
+                    fields: template.fields.map(f => ({...f})),
+                    isCustom: template.isCustom || false
+                }]);
+            };
+            
+            const updateField = (id, idx, updates) => {
+                setNodes(prev => prev.map(n => {
+                    if (n.id !== id) return n;
+                    const fs = [...n.fields];
+                    fs[idx] = {...fs[idx], ...updates};
+                    return {...n, fields: fs};
+                }));
+            };
+            
+            const batchUpdateDataType = (id, dataType) => {
+                setNodes(prev => prev.map(n => {
+                    if (n.id !== id) return n;
+                    const fs = n.fields.map(f => ({...f, dataType}));
+                    return {...n, fields: fs};
+                }));
+            };
+            
+            const addCustomField = (id) => {
+                setNodes(prev => prev.map(n => {
+                    if (n.id !== id) return n;
+                    return {...n, fields: [...n.fields, { name: '', subname: '', example: '', dataType: '', value: '' }]};
+                }));
+            };
+            
+            const deleteCustomField = (id, idx) => {
+                setNodes(prev => prev.map(n => {
+                    if (n.id !== id) return n;
+                    const fs = n.fields.filter((_, i) => i !== idx);
+                    return {...n, fields: fs};
+                }));
+            };
+            
+            const toggleDeleteField = (id, idx) => {
+                setNodes(prev => prev.map(n => {
+                    if (n.id !== id) return n;
+                    const fs = [...n.fields];
+                    fs[idx] = {...fs[idx], deleted: !fs[idx].deleted};
+                    return {...n, fields: fs};
+                }));
+            };
+            
+const deleteNode = (id) => {
+                const nodeToDelete = nodes.find(n => n.id === id);
+                if (!nodeToDelete) return;
+                const baseName = nodeToDelete.nodeName.replace(/-\d+$/, '');
+                setNodes(prev => {
+                    const remaining = prev.filter(n => n.id !== id);
+                    const sameBaseName = remaining.filter(n => n.nodeName.replace(/-\d+$/, '') === baseName);
+                    const otherNodes = remaining.filter(n => n.nodeName.replace(/-\d+$/, '') !== baseName);
+                    sameBaseName.sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
+                    const nameCounters = {};
+                    sameBaseName.forEach(n => {
+                        nameCounters[baseName] = (nameCounters[baseName] || 0) + 1;
+                        n.nodeName = baseName + '-' + nameCounters[baseName];
+                    });
+                    return [...otherNodes, ...sameBaseName];
+                });
+                setSelectedId(null);
+            };
+            
+            const copyNode = (id, e) => {
+                e.stopPropagation();
+                const nodeToCopy = nodes.find(n => n.id === id);
+                if (!nodeToCopy) return;
+                
+                let pos;
+                const rightX = nodeToCopy.gridX + 1;
+                const belowY = nodeToCopy.gridY + 1;
+                
+                if (rightX < GRID_COLS && !nodes.some(n => !n.pinned && n.gridX === rightX && n.gridY === nodeToCopy.gridY)) {
+                    pos = {x: rightX, y: nodeToCopy.gridY};
+                } else if (belowY < GRID_ROWS && !nodes.some(n => !n.pinned && n.gridX === nodeToCopy.gridX && n.gridY === belowY)) {
+                    pos = {x: nodeToCopy.gridX, y: belowY};
+                } else {
+                    pos = findEmpty();
+                }
+                
+                const newNode = {
+                    ...nodeToCopy,
+                    id: genId(),
+                    gridX: pos.x,
+                    gridY: pos.y,
+                    fields: nodeToCopy.fields.map(f => ({...f})),
+                    notes: nodeToCopy.notes || ''
+                };
+                setNodes(prev => [...prev, newNode]);
+            };
+            
+            const exportExcel = () => {
+                const pinned = nodes.filter(n => n.pinned);
+                const targetGroup = nodes.filter(n => n.isTargetGroup);
+                const grid = nodes.filter(n => !n.pinned && !n.isTargetGroup).sort((a,b) => {
+                    if (a.gridY !== b.gridY) return a.gridY - b.gridY;
+                    return a.gridX - b.gridX;
+                });
+                const rows = [];
+                const merges = [];
+                let currentRow = 1;
+                pinned.forEach(n => {
+                    const fieldCount = n.fields.length;
+                    const startRow = currentRow;
+                    if (fieldCount > 1) {
+                        merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
+                        merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
+                    }
+                    n.fields.forEach(f => {
+                        rows.push({
+                            position: '',
+                            node_name: n.nodeName,
+                            field_name: f.subname || f.name,
+                            example: f.example || '',
+                            data_type: '',
+                            value: f.value || '',
+                            notes: n.notes || ''
+                        });
+                        currentRow++;
+                    });
+                });
+                targetGroup.forEach(n => {
+                    const nodeLabel = `${n.nodeName}-1`;
+                    const position = `(${n.gridX},${n.gridY})`;
+                    const fieldCount = n.fields.length;
+                    const startRow = currentRow;
+                    if (fieldCount > 1) {
+                        merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
+                        merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
+                    }
+                    n.fields.forEach(f => {
+                        rows.push({
+                            position,
+                            node_name: nodeLabel,
+                            field_name: f.subname || f.name,
+                            example: f.example || '',
+                            data_type: f.deleted ? 'No Need' : (f.dataType === 'excel_upload' ? 'Excel Upload' : f.dataType === 'follow_template_key' ? 'Follow Template Key' : f.dataType === 'fixed_value' ? 'Fixed' : f.dataType === 'system_generated' ? 'System-Generated' : ''),
+                            value: f.deleted ? 'No Need' : (f.value || ''),
+                            notes: n.notes || ''
+                        });
+                        currentRow++;
+                    });
+                });
+                grid.forEach((n, i) => {
+                    const nodeLabel = `${n.nodeName}-${i+2}`;
+                    const position = `(${n.gridX},${n.gridY})`;
+                    const fieldCount = n.fields.length;
+                    const startRow = currentRow;
+                    if (fieldCount === 0) {
+                        rows.push({
+                            position,
+                            node_name: nodeLabel,
+                            field_name: '',
+                            example: '',
+                            data_type: '',
+                            value: '',
+                            notes: n.notes || ''
+                        });
+                        currentRow++;
+                    } else {
+                        if (fieldCount > 1) {
+                            merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
+                            merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
+                        }
+                        n.fields.forEach(f => {
+                            rows.push({
+                                position,
+                                node_name: nodeLabel,
+                                field_name: f.subname || f.name,
+                                example: n.isCustom ? '' : (f.example || ''),
+data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMaxCallToAction ? '' : (f.dataType === 'excel_upload' ? 'Excel Upload' : f.dataType === 'follow_template_key' ? 'Follow Template Key' : f.dataType === 'fixed_value' ? 'Fixed' : f.dataType === 'system_generated' ? 'System-Generated' : '')),
+                                value: f.deleted ? 'No Need' : (f.value || ''),
+                                notes: n.notes || ''
+                            });
+                            currentRow++;
+                        });
+                    }
+                });
+                const ws = XLSX.utils.json_to_sheet(rows, {header: ['position', 'node_name', 'field_name', 'example', 'data_type', 'value', 'notes']});
+                ws['!merges'] = merges;
+                const colWidths = [{wch:12}, {wch:20}, {wch:35}, {wch:25}, {wch:15}, {wch:30}, {wch:25}];
+                ws['!cols'] = colWidths;
+                ws['!align'] = { horizontal: 'center' };
+                const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+                const dataTypeColors = {
+                    'Excel Upload': 'FFF2CC',
+                    'Fixed': 'D9EAD3',
+                    'System-Generated': 'CFE2F3',
+                    '': 'F3F3F3'
+                };
+                for (let r = 0; r <= range.e.r; r++) {
+                    for (let c = 0; c <= range.e.c; c++) {
+                        const cellRef = XLSX.utils.encode_cell({r, c});
+                        if (!ws[cellRef]) ws[cellRef] = {};
+                        if (!ws[cellRef].s) ws[cellRef].s = {};
+                        ws[cellRef].s.font = { name: 'Times New Roman' };
+                        if (r === 0) {
+                            ws[cellRef].s.fill = { fgColor: { rgb: '4472C4' } };
+                            ws[cellRef].s.font = { bold: true, color: { rgb: 'FFFFFF' }, name: 'Times New Roman' };
+                        } else if (c === 4) {
+                            const val = ws[cellRef] ? ws[cellRef].v : '';
+                            ws[cellRef].s.fill = { fgColor: { rgb: dataTypeColors[val] || 'FFFFFF' } };
+                        }
+                    }
+                }
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'POPE');
+                XLSX.writeFile(wb, 'pope.xlsx');
+            };
+            
+            const importExcel = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+                    const newNodes = [];
+                    let currentNode = null;
+                    let currentNodeRawName = '';
+                    let nodeId = 1;
+                    const usedPositions = new Set();
+                    json.forEach(row => {
+                        const rawNodeName = (row.node_name || '').trim();
+                        if (!rawNodeName) return;
+                        const fieldName = row.field_name || '';
+                        const position = row.position || '';
+                        const baseName = rawNodeName.replace(/-\d+$/, '').trim();
+                        const isPinned = baseName === 'Background' || baseName === 'Event basic info';
+                        const isTargetGroup = baseName === 'Target Group';
+                        const useFollowTemplateKey = ['Push text(APP)', 'Email', 'WhatsAPP Message', 'SMS'].includes(baseName);
+                        let gridX = 0, gridY = 0;
+                        if (position) {
+                            const posMatch = position.match(/\((\d+),(\d+)\)/);
+                            if (posMatch) {
+                                gridX = parseInt(posMatch[1]);
+                                gridY = parseInt(posMatch[2]);
+                            }
+                        }
+                        if (!currentNode || currentNodeRawName !== rawNodeName) {
+                            if (currentNode) newNodes.push(currentNode);
+                            if (!isPinned && !isTargetGroup && gridX === 0 && gridY === 0) {
+                                while (usedPositions.has(`${gridX},${gridY}`)) {
+                                    gridX = (gridX + 1) % GRID_COLS;
+                                    if (gridX === 0) gridY++;
+                                }
+                            }
+                            usedPositions.add(`${gridX},${gridY}`);
+                            currentNodeRawName = rawNodeName;
+                            currentNode = { 
+                                id: 'imported_' + (nodeId++), 
+                                nodeName: baseName, 
+                                gridX, 
+                                gridY,
+                                fields: [], 
+                                notes: '',
+                                pinned: isPinned || false,
+                                isTargetGroup: isTargetGroup || false,
+                                useFollowTemplateKey: useFollowTemplateKey || false
+                            };
+                            if (isPinned) {
+                                currentNode.gridX = baseName === 'Background' ? 0 : 1;
+                                currentNode.gridY = -2;
+                            }
+                            if (isTargetGroup) {
+                                currentNode.gridX = 0;
+                                currentNode.gridY = 0;
+                            }
+                        }
+                        if (fieldName) {
+                            const name = fieldName;
+                            const subname = '';
+                            let dataType = '';
+                            let deleted = false;
+                            if (row.data_type === 'Excel Upload') dataType = 'excel_upload';
+                            else if (row.data_type === 'Follow Template Key') dataType = 'follow_template_key';
+                            else if (row.data_type === 'Fixed') dataType = 'fixed_value';
+                            else if (row.data_type === 'System-Generated') dataType = 'system_generated';
+                            else if (row.data_type === 'No Need') { dataType = ''; deleted = true; }
+                            const fieldValue = row.value === 'No Need' ? '' : (row.value || '');
+                            currentNode.fields.push({
+                                name,
+                                subname,
+                                example: row.prompt || '',
+                                dataType,
+                                value: fieldValue,
+                                deleted
+                            });
+                            if (row.notes) {
+                                currentNode.notes = row.notes;
+                            }
+                        } else if (!fieldName && currentNode.fields.length === 0 && row.notes) {
+                            currentNode.notes = row.notes;
+                        }
+                    });
+                    if (currentNode) newNodes.push(currentNode);
+                    setNodes(newNodes);
+                };
+                reader.readAsArrayBuffer(file);
+                e.target.value = '';
+            };
+            
+            const clearAll = () => {
+                if (confirm('Are you sure you want to clear all data?')) {
+                    setNodes([
+                        { id: 'bg', nodeName: 'Background', gridX: 0, gridY: -2, pinned: true, fields: TEMPLATES['Background'].fields.map(f => ({...f})) },
+                        { id: 'evt', nodeName: 'Event basic info', gridX: 1, gridY: -2, pinned: true, fields: TEMPLATES['Event basic info'].fields.map(f => ({...f})) },
+                        { id: 'tg', nodeName: 'Target Group', gridX: 0, gridY: 0, fields: TEMPLATES['Target Group'].fields.map(f => ({...f})), isTargetGroup: true }
+                    ]);
+                    setSelectedId(null);
+                }
+            };
+            
+            const pinned = nodes.filter(n => n.pinned);
+            const grid = nodes.filter(n => !n.pinned);
+            const orderedGridNodes = nodes.filter(n => !n.pinned && !n.isTargetGroup).sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
+            const nodeDisplayNameById = new Map(orderedGridNodes.map((n, idx) => [n.id, `${n.nodeName}-${idx + 2}`]));
+            const getNodeDisplayName = (node) => {
+                if (node.isTargetGroup) return `${node.nodeName}-1`;
+                return nodeDisplayNameById.get(node.id) || node.nodeName;
+            };
+            const selected = nodes.find(n => n.id === selectedId);
+            
+            return (
+                <div className="flex flex-col h-screen">
+                    <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
+                        <h1 className="text-xl font-semibold">POPE Batch Template</h1>
+<button onClick={async () => {
+                            console.log('Download Template clicked!');
+                            const templateData = TEMPLATE_DATA;
+                            const getPrompt = (nodeName, fieldName) => {
+                                const baseNodeName = nodeName.replace(/-\d+$/, '').trim();
+                                const nodeKey = Object.keys(templateData).find(k => {
+                                    const baseK = k.replace(/-\d+$/, '').trim();
+                                    return baseK.toLowerCase() === baseNodeName.toLowerCase() ||
+                                           baseK.toLowerCase().includes(baseNodeName.toLowerCase()) ||
+                                           baseNodeName.toLowerCase().includes(baseK.toLowerCase());
+                                });
+                                if (!nodeKey) return '';
+                                const nodeFields = templateData[nodeKey].fields || [];
+                                const field = nodeFields.find(f => f.id.toLowerCase() === fieldName.toLowerCase());
+                                return field ? (field.prompt || '') : '';
+                            };
+                            const bgNode = nodes.find(n => n.nodeName === 'Background');
+                            let hasEventApproval = false;
+                            if (bgNode) {
+                                const field = bgNode.fields.find(f => f.name === 'Canvas Automatic Approval' && f.subname === 'Open this function');
+                                if (field && field.value === 'Yes') hasEventApproval = true;
+                            }
+                            const orderedGridNodes = nodes
+                                .filter(n => !n.pinned && !n.isTargetGroup)
+                                .sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
+                            const nodeNumberById = new Map(orderedGridNodes.map((n, idx) => [n.id, idx + 2]));
+                            const getTemplateNodeLabel = (node) => {
+                                if (node.isTargetGroup) return 'Target group-1';
+                                const num = nodeNumberById.get(node.id);
+                                return num ? `${node.nodeName}-${num}` : node.nodeName;
+                            };
+                            const templateNameField = bgNode ? bgNode.fields.find(f => f.name === 'Template name') : null;
+                            const templateNameValue = templateNameField ? (templateNameField.value || '') : '';
+                            const evtIdx = nodes.findIndex(n => n.nodeName === 'Event basic info');
+                            const startIdx = evtIdx >= 0 ? evtIdx : 0;
+                            const candidateNodes = nodes
+                                .map((n, i) => ({ node: n, origIdx: i }))
+                                .filter(({ origIdx }) => origIdx >= startIdx);
+                            const hasExcelUploadSelection = candidateNodes
+                                .some(({ node }) => node.fields.some(f => f.dataType === 'excel_upload' && !f.deleted));
+                            const nodeCols = [];
+                            candidateNodes.forEach(({ node }) => {
+                                const exportFields = hasExcelUploadSelection
+                                    ? node.fields.filter(f => f.dataType === 'excel_upload' && !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction)
+                                    : node.fields.filter(f => !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction);
+                                if (exportFields.length > 0) nodeCols.push({ node, fields: exportFields });
+                            });
+                            const totalCols = 1 + (hasEventApproval ? 1 : 0) + nodeCols.reduce((sum, nc) => sum + nc.fields.length, 0);
+                            const TEMPLATE_MAX_ROWS = 1000;
+                            const aoa = [];
+                            for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) aoa.push(new Array(totalCols).fill(''));
+                            aoa[0][0] = 'POPE Template';
+                            aoa[1][0] = 'Template name';
+                            aoa[2][0] = templateNameValue;
+                            let colIdx = 1;
+                            if (hasEventApproval) {
+                                aoa[0][colIdx] = 'Automatic approval';
+                                aoa[1][colIdx] = '';
+                                aoa[2][colIdx] = 'Yes';
+                                colIdx++;
+                            }
+                            const merges = [];
+                            const colIndexMap = [];
+                            nodeCols.forEach(nc => {
+                                const startCol = colIdx;
+                                const baseName = nc.node.nodeName.replace(/-\d+$/, '');
+                                const displayName = getTemplateNodeLabel(nc.node);
+                                nc.fields.forEach((f) => {
+                                    if (f.deleted) return;
+                                    const fieldName = f.subname ? f.subname : f.name;
+                                    const indexMatch = fieldName.match(/-(\d+)$/);
+                                    const index = indexMatch ? parseInt(indexMatch[1]) : 0;
+                                    aoa[0][colIdx] = displayName;
+                                    aoa[1][colIdx] = fieldName;
+                                    aoa[2][colIdx] = getPrompt(baseName, fieldName);
+                                    colIndexMap.push({ col: colIdx, index });
+                                    colIdx++;
+                                });
+                                if (nc.fields.length > 1) merges.push({ s: { r: 0, c: startCol }, e: { r: 0, c: colIdx - 1 } });
+                            });
+                            const colWidths = [{ wch: 24 }, { wch: 9 }, { wch: 29 }, { wch: 32 }, { wch: 9 }, { wch: 23 }, { wch: 17 }, { wch: 17 }, { wch: 23 }, { wch: 25 }];
+                            while (colWidths.length < totalCols) colWidths.push({ wch: 18 });
+                            const wb = XLSX.utils.book_new();
+                            const ws = {};
+                            ws['!cols'] = colWidths;
+                            ws['!merges'] = merges;
+                            ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: TEMPLATE_MAX_ROWS - 1, c: totalCols - 1 } });
+                            for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) {
+                                for (let c = 0; c < totalCols; c++) {
+                                    const cellRef = XLSX.utils.encode_cell({ r, c });
+                                    const colInfo = colIndexMap.find(info => info.col === c);
+                                    const isHighlight = colInfo && colInfo.index !== 0 && colInfo.index % 2 === 0;
+                                    const isTopHeader = r === 0;
+                                    const isFieldHeader = r === 1;
+                                    const isPromptRow = r === 2;
+                                    ws[cellRef] = {
+                                        t: 's',
+                                        v: aoa[r][c] || '',
+                                        s: {
+                                            font: { name: 'Times New Roman' },
+                                            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+                                            border: {
+                                                top: { style: 'thin' },
+                                                bottom: { style: 'thin' },
+                                                left: { style: 'thin' },
+                                                right: { style: 'thin' }
+                                            }
+                                        }
+                                    };
+                                    if (isTopHeader && c === 0) {
+                                        ws[cellRef].s.fill = { fgColor: { rgb: '4472C4' } };
+                                        ws[cellRef].s.font = { bold: true, color: { rgb: 'FFFFFF' }, name: 'Times New Roman' };
+                                    } else if (isTopHeader && aoa[r][c]) {
+                                        ws[cellRef].s.fill = { fgColor: { rgb: 'D9E1F2' } };
+                                        ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
+                                    } else if (isFieldHeader || isPromptRow) {
+                                        ws[cellRef].s.fill = { fgColor: { rgb: 'F2F2F2' } };
+                                        if (isFieldHeader) ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
+                                    }
+                                    if (isHighlight) ws[cellRef].s.fill = { fgColor: { rgb: 'FFF2CC' } };
+                                }
+                            }
+                            XLSX.utils.book_append_sheet(wb, ws, 'POPE');
+                            XLSX.writeFile(wb, 'pope_template.xlsx');
+                        }} className="ml-4 px-3 py-1 text-sm border-2 border-purple-500 text-purple-600 rounded hover:bg-purple-50 font-medium">Download Template</button>
+                        <div className="flex gap-3">
+                            <button onClick={exportExcel} className="bg-blue-600 text-white px-4 py-2 rounded">Export</button>
+                            <label className="bg-green-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-green-700">
+                                Upload
+                                <input type="file" accept=".xlsx,.xls" onChange={importExcel} className="hidden"/>
+                            </label>
+                            <button onClick={clearAll} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Clear All</button>
+                        </div>
+                    </header>
+                    <div className="flex gap-4 p-4 bg-gray-100 border-b">
+                        {pinned.map(n => {
+                            const sel = selectedId === n.id;
+                            return <div key={n.id} className={`flex-1 bg-gradient-to-br rounded-lg shadow-md cursor-pointer ${sel?'ring-2 ring-blue-500':'hover:shadow-lg'} transition`} style={{minHeight:80, background:n.nodeName==='Background'?'linear-gradient(135deg,#6366f1,#4f46e5)':'linear-gradient(131deg,#8b5cf6,#7c3aed)'}} onClick={() => setSelectedId(n.id)}>
+                                <div className="h-full flex flex-col items-center justify-center p-4">
+                                    <span className="text-white font-semibold text-lg">{n.nodeName}</span>
+                                    <span className="text-white text-sm font-medium">Required</span>
+                                </div>
+                            </div>;
+                        })}
+                    </div>
+                    <div className="flex flex-1 overflow-hidden">
+                        <aside className="w-56 bg-gray-50 border-r p-3 overflow-y-auto">
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Triggers</h4>
+                                    {['User Event', 'Delay of executing task', 'Task Start Time', 'Special bubble for issuing coupons after call'].map(name => TEMPLATES[name] && (
+                                        <div key={name} draggable className="bg-white rounded shadow-sm border p-3 cursor-move mb-1 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all" onDragStart={e => handleTemplateDrag(e, name)}>
+                                            <div className="text-sm font-semibold text-gray-800">{name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Flow Control</h4>
+                                    {['Apollo Split'].map(name => TEMPLATES[name] && (
+                                        <div key={name} draggable className="bg-white rounded shadow-sm border p-3 cursor-move mb-1 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all" onDragStart={e => handleTemplateDrag(e, name)}>
+                                            <div className="text-sm font-semibold text-gray-800">{name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Condition</h4>
+                                    {['Apollo Split', 'Time Conditions', 'Group Conditions'].map(name => TEMPLATES[name] && (
+                                        <div key={name} draggable className="bg-white rounded shadow-sm border p-3 cursor-move mb-1 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all" onDragStart={e => handleTemplateDrag(e, name)}>
+                                            <div className="text-sm font-semibold text-gray-800">{name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Rewards</h4>
+                                    {['DiDi Coupon', 'Request with Coupon'].map(name => TEMPLATES[name] && (
+                                        <div key={name} draggable className="bg-white rounded shadow-sm border p-3 cursor-move mb-1 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all" onDragStart={e => handleTemplateDrag(e, name)}>
+                                            <div className="text-sm font-semibold text-gray-800">{name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Communication</h4>
+                                    {['Push text(APP)', 'Email', 'WhatsAPP Message', 'SMS', 'Empty Action'].map(name => TEMPLATES[name] && (
+                                        <div key={name} draggable className="bg-white rounded shadow-sm border p-3 cursor-move mb-1 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all" onDragStart={e => handleTemplateDrag(e, name)}>
+                                            <div className="text-sm font-semibold text-gray-800">{name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-700 mb-2">Custom</h4>
+                                    {TEMPLATES['Custom Node'] && (
+                                        <div draggable className="bg-purple-600 rounded shadow-sm border p-3 cursor-move mb-1 border-purple-700 hover:bg-purple-700 transition-all" onDragStart={e => handleTemplateDrag(e, 'Custom Node')}>
+                                            <div className="text-sm font-semibold text-white">Custom Node</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </aside>
+                        <main className="flex-1 bg-gray-100 overflow-auto p-4" ref={mainRef} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
+                            <div className={`relative ${dragState ? 'no-select' : ''}`} style={{width:GRID_COLS*CELL_SIZE, height:GRID_ROWS*CELL_SIZE}}>
+                                {Array.from({length:GRID_ROWS}).map((_,gy) => Array.from({length:GRID_COLS}).map((_,gx) => {
+                                    const isTG = gx===0 && gy===0;
+                                    const occupied = nodes.some(n => !n.pinned && n.gridX===gx && n.gridY===gy);
+                                    return <div key={`${gx}-${gy}`} className={`absolute ${isTG?'border-blue-500 bg-blue-50':occupied?'border-green-500 bg-green-50':'border-gray-300 bg-white'}`} style={{left:gx*CELL_SIZE, top:gy*CELL_SIZE, width:CELL_SIZE, height:CELL_SIZE, borderRadius:8, borderWidth:1, borderStyle:'solid'}}/>;
+                                }))}
+                                {[...pinned, ...grid.filter(n => n.isTargetGroup)].map(n => <div key={n.id} className="absolute bg-indigo-600 rounded shadow-md flex items-center justify-center px-3" style={{left:n.gridX*CELL_SIZE+25, top:n.gridY*CELL_SIZE+50, width:CELL_SIZE-50, height:60, zIndex:15}} onClick={() => setSelectedId(n.id)}><span className="text-white text-sm text-center leading-tight">{getNodeDisplayName(n)}</span></div>)}
+                                {orderedGridNodes.map((n) => {
+                                    const sel = selectedId === n.id;
+                                    const isUnclickable = n.nodeName === 'Empty Action' || n.nodeName === 'Special bubble for issuing coupons after call';
+                                    return <div key={n.id} className={`absolute bg-white rounded shadow-sm border ${sel?'ring-2 ring-blue-500':'border-gray-200'} ${isUnclickable?'opacity-70':'cursor-pointer'}`} style={{left:n.gridX*CELL_SIZE+20, top:n.gridY*CELL_SIZE+20, width:CELL_SIZE-40, height:CELL_SIZE-40, zIndex:sel?20:10}} onMouseDown={e => { e.stopPropagation(); handleNodeDown(e, n.id); }} onClick={() => !isUnclickable && !wasDragged && setSelectedId(n.id)}>
+                                        <div className="h-full flex flex-col items-center justify-center p-2 relative group">
+                                            <span className="text-sm font-medium text-center">{getNodeDisplayName(n)}</span>
+                                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button className="w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded flex items-center justify-center text-xs font-bold shadow-sm" onClick={e => copyNode(n.id, e)} title="Copy">+</button>
+                                                <button className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded flex items-center justify-center text-base leading-none shadow-sm" onClick={e => {e.stopPropagation(); deleteNode(n.id);}}>×</button>
+                                            </div>
+                                        </div>
+                                    </div>;
+                                })}
+                                
+                            </div>
+                        </main>
+                    </div>
+                    {selected && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeModal}>
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                <div className="px-6 py-4 border-b flex justify-between items-center shrink-0">
+                                    <h3 className="text-lg font-semibold">{selected.nodeName}</h3>
+                                    <button onClick={closeModal} className="text-2xl w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded">×</button>
+                                </div>
+                                <div className="px-6 py-4 overflow-auto" style={{maxHeight:'calc(90vh-130px)'}}>
+                                    {selected.pinned && selected.nodeName === 'Event basic info' ? (
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-left text-sm font-semibold text-gray-800 border-b">
+                                                <th className="pb-2 pr-4 w-40">Field</th>
+                                                <th className="pb-2 pr-4 w-48">Example</th>
+                                                <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></th>
+                                                <th className="pb-2">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selected.fields.map((f, i) => (
+                                                <tr key={i} className="border-b">
+                                                    <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>{f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}</td>
+                                                    <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
+                                                    <td className="py-3 pr-4"><select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.dataType || ''} onChange={e => updateField(selected.id, i, {dataType:e.target.value})}><option value="">Select...</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></td>
+                                                    <td className="py-3">{f.dataType === 'excel_upload' ? <div className="text-sm text-gray-400 italic">Upload from Excel</div> : <input type="text" className={`w-full border rounded px-2 py-1.5 text-sm ${f.dataType ? 'bg-gray-50' : 'bg-gray-200 cursor-not-allowed'}`} value={f.value||''} placeholder={f.dataType ? 'Enter value' : 'Select data type first'} disabled={!f.dataType} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    ) : selected.pinned ? (
+                                    <table className="w-full">
+                                        <thead><tr className="text-left text-sm font-semibold text-gray-800 border-b"><th className="pb-2 pr-4 w-40">Field</th><th className="pb-2 pr-4 w-48">Example</th><th className="pb-2">Value</th></tr></thead>
+                                        <tbody>
+                                            {selected.fields.map((f, i) => (
+                                                <tr key={i} className="border-b">
+                                                    <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>{f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}</td>
+                                                    <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
+                                                    <td className="py-3">
+                                                        {f.name === 'Canvas Automatic Approval' ? (
+                                                            <select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.value||''} onChange={e => updateField(selected.id, i, {value:e.target.value})}><option value="">Select...</option><option value="Yes">Yes</option><option value="No">No</option></select>
+                                                        ) : f.name === 'Priority' ? (
+                                                            <select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.value||''} onChange={e => updateField(selected.id, i, {value:e.target.value})}><option value="">Select...</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option></select>
+                                                        ) : (f.name === 'Benefits' || f.subname === 'Before' || f.subname === 'After') ? (
+                                                            <textarea className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm h-20 resize-y" value={f.value||''} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>
+                                                        ) : (
+                                                            <input type="text" className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.value||''} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    ) : selected.isCustom ? (
+                                    <div>
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Node Name:</label>
+                                            <input type="text" className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={selected.nodeName||''} placeholder="Enter" onChange={e => setNodes(prev => prev.map(n => n.id === selected.id ? {...n, nodeName: e.target.value} : n))}/>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="text-left text-sm font-semibold text-gray-800 border-b">
+                                                    <th className="pb-2 w-10"></th>
+                                                    <th className="pb-2 pr-4 w-48">Field</th>
+                                                    <th className="pb-2 pr-4 w-36">Prompt</th>
+                                                    <th className="pb-2 pr-4 w-44">Data Type</th>
+                                                    <th className="pb-2">Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selected.fields.map((f, i) => (
+                                                    <tr key={i} className="border-b">
+                                                        <td className="py-3 pr-2"><button onClick={() => deleteCustomField(selected.id, i)} className="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded flex items-center justify-center text-xs font-bold shadow-sm" title="Delete field">×</button></td>
+                                                        <td className="py-3 pr-4"><input type="text" className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.name||''} placeholder="Enter field" onChange={e => updateField(selected.id, i, {name:e.target.value, subname:''})}/></td>
+                                                        <td className="py-3 pr-4"><input type="text" className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.example||''} placeholder="Enter example" onChange={e => updateField(selected.id, i, {example:e.target.value})}/></td>
+                                                        <td className="py-3 pr-4"><select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.dataType || ''} onChange={e => updateField(selected.id, i, {dataType:e.target.value})}><option value="">Select...</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></td>
+                                                        <td className="py-3">{f.dataType === 'excel_upload' ? <div className="text-sm text-gray-400 italic">Upload from Excel</div> : <input type="text" className={`w-full border rounded px-2 py-1.5 text-sm ${f.dataType ? 'bg-gray-50' : 'bg-gray-200 cursor-not-allowed'}`} value={f.value||''} placeholder={f.dataType ? 'Enter value' : 'Select data type first'} disabled={!f.dataType} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <button onClick={() => addCustomField(selected.id)} className="mt-2 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700">+ Add Field</button>
+                                    </div>
+                                    ) : selected.fields.length > 0 ? (
+                                    <>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="text-left text-sm font-semibold text-gray-800 border-b">
+                                                    <th className="pb-2 w-10"></th>
+                                                    <th className="pb-2 pr-4 w-40">Field</th>
+                                                    <th className="pb-2 pr-4 w-48">Example</th>
+                                                    <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></th>
+                                                    <th className="pb-2">Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selected.fields.map((f, i) => (
+                                                    <tr key={i} className={`border-b ${f.deleted ? 'opacity-50' : ''}`}>
+                                                        <td className="py-3 pr-2"><button onClick={() => toggleDeleteField(selected.id, i)} className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold shadow-sm ${f.deleted ? 'bg-green-500 hover:bg-green-600' : 'bg-white hover:bg-gray-100 border border-gray-400 text-gray-400'} text-white`} title={f.deleted ? 'Restore field' : 'Mark field as No Need'}>{f.deleted ? '↩' : '×'}</button></td>
+                                                        <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'} ${f.deleted ? 'line-through' : ''}`}>{f.name}</div>{f.subname && <div className={`text-sm text-gray-800 ${f.deleted ? 'line-through' : ''}`}>{f.subname}</div>}</td>
+                                                        <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
+                                                        {f.isMaxCoupon || f.isMaxQuickReply || f.isMaxCallToAction ? (
+                                                            <td colSpan={2} className="py-3">{f.deleted ? <div className="text-sm text-gray-400 italic">No Need</div> : <input type="text" className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.value||''} placeholder="Enter value" onChange={e => updateField(selected.id, i, {value:e.target.value})}/>}</td>
+                                                        ) : (
+                                                            <>
+                                                                <td className="py-3 pr-4">{f.deleted ? <div className="text-sm text-gray-400 italic">No Need</div> : <select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.dataType || ''} onChange={e => updateField(selected.id, i, {dataType:e.target.value})}><option value="">Select...</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select>}</td>
+                                                                <td className="py-3">{f.deleted ? <div className="text-sm text-gray-400 italic">No Need</div> : f.dataType === 'excel_upload' ? <div className="text-sm text-gray-400 italic">Upload from Excel</div> : f.dataType === 'follow_template_key' ? <div className="text-sm text-gray-400 italic">Follow Template Key</div> : <input type="text" className={`w-full border rounded px-2 py-1.5 text-sm ${f.dataType ? 'bg-gray-50' : 'bg-gray-200 cursor-not-allowed'}`} value={f.value||''} placeholder={f.dataType === 'fixed_value' || f.dataType === 'system_generated' ? 'Enter value' : 'Select data type first'} disabled={!f.dataType} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>}</td>
+                                                            </>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </>
+                                    ) : (
+                                    <div className="text-sm text-gray-500 py-4">No configurable fields for this node.</div>
+                                    )}
+                                    <div className="mt-4 pt-4 border-t">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes:</label>
+                                        <textarea className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm h-20 resize-y" placeholder="Enter notes..." value={selected.notes||''} onChange={e => setNodes(prev => prev.map(n => n.id === selected.id ? {...n, notes: e.target.value} : n))}/>
+                                    </div>
+                                </div>
+                                <div className="px-6 py-4 border-t flex justify-end gap-3 shrink-0">
+                                    <button onClick={closeModal} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                                    <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                                </div>
+                            </div>
+                        </div>
+)}
+
+                    {showIncompleteWarning && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowIncompleteWarning(false)}>
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+                                <div className="p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xl">⚠️</span>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-800">Warning</h3>
+                                    </div>
+                                    <p className="text-gray-600 mb-4">Please complete all required fields.</p>
+                                    <div className="flex justify-end">
+                                        <button onClick={closeModal} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">OK</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
