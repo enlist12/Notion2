@@ -1142,9 +1142,9 @@ data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMa
                             aoa[2][0] = templateNameValue;
                             let colIdx = 1;
                             if (hasEventApproval) {
-                                aoa[0][colIdx] = 'Automatic approval';
-                                aoa[1][colIdx] = '';
-                                aoa[2][colIdx] = 'Yes';
+                                aoa[0][colIdx] = 'Event Approval';
+                                aoa[1][colIdx] = 'Canvas Automatic Approval';
+                                aoa[2][colIdx] = 'Yes / No';
                                 colIdx++;
                             }
                             const merges = [];
