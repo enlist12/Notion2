@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: -apple-system, sans-serif; background: #f5f5f5; }
@@ -34,8 +35,8 @@
                 { name: 'Template name', subname: '', example: 'Please give this template a name', dataType: '', value: '' },
                 { name: 'Requester', subname: '', example: 'Your name', dataType: '', value: '' },
                 { name: 'Country', subname: '', example: 'BR', dataType: '', value: '' },
-                { name: 'Department', subname: '', example: 'Pax', dataType: '', value: '' },
-                { name: 'User', subname: '', example: 'Mobility：Driver/Passenger；Food：Food User/Store/Rider', dataType: '', value: '' },
+                { name: 'Department', subname: '', example: 'CRM', dataType: '', value: '' },
+                { name: 'User', subname: '', example: 'DRV/PAX/Food User/Store/Rider', dataType: '', value: '' },
                 { name: 'Expected Launch Date', subname: '', example: '2026.2.10', dataType: '', value: '' },
                 { name: 'Priority', subname: '', example: 'P0/P1/P2', dataType: '', value: '' },
                 { name: 'Benefits', subname: 'Before', example: 'Currently configuring 4 POPE activities manually takes about 8 minutes each', dataType: '', value: '' },
@@ -103,7 +104,7 @@
                 { name: 'Product Line', subname: '', example: '', dataType: '', value: '' },
                 { name: 'Coupon type', subname: '', example: 'discounted/fixed', dataType: '', value: '' },
                 { name: 'Discounted Coupon Value', subname: 'Fixed amount', example: 'BRL 100', dataType: '', value: '' },
-                { name: 'Fixed Coupon Value', subname: 'Discount', example: '0.5', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Discount( x% off)', example: '0.5', dataType: '', value: '' },
                 { name: 'Fixed Coupon Value', subname: 'Cap limit', example: 'BRL 100', dataType: '', value: '' },
                 { name: 'Eligibility Threshold Requirement', subname: '', example: '', dataType: '', value: '' },
                 { name: 'Trip Distance Limit', subname: '', example: 'No', dataType: '', value: '' },
@@ -152,7 +153,7 @@
                 { name: 'Product Line', subname: '', example: '', dataType: '', value: '' },
                 { name: 'Coupon type', subname: '', example: 'discounted/fixed', dataType: '', value: '' },
                 { name: 'Discounted Coupon Value', subname: 'Fixed amount', example: 'BRL 100', dataType: '', value: '' },
-                { name: 'Fixed Coupon Value', subname: 'Discount ( x% off)', example: '0.5', dataType: '', value: '' },
+                { name: 'Fixed Coupon Value', subname: 'Discount( x% off)', example: '0.5', dataType: '', value: '' },
                 { name: 'Fixed Coupon Value', subname: 'Cap limit', example: 'BRL 100', dataType: '', value: '' },
                 { name: 'Eligibility Threshold Requirement', subname: '', example: '', dataType: '', value: '' },
                 { name: 'Trip Distance Limit', subname: '', example: 'No', dataType: '', value: '' },
@@ -279,7 +280,7 @@
                         "prompt": "discount/fixed"
                     },
                     {
-                        "id": "Discount ( x% off)",
+                        "id": "Discount( x% off)",
                         "prompt": ""
                     },
                     {
@@ -288,7 +289,7 @@
                     },
                     {
                         "id": "Product Line",
-                        "prompt": ""
+                        "prompt": "240\n-Enter the phoenix ID, find in: https://cooper.didichuxing.com/knowledge/share/page/jwLMmfPWBdHl#\n-For multiple product lines, separate with commas."
                     }
                 ]
             },
@@ -848,7 +849,111 @@ const deleteNode = (id) => {
                 setNodes(prev => [...prev, newNode]);
             };
             
-            const exportExcel = () => {
+            const downloadPRD = () => {
+                const bgNode = nodes.find(n => n.nodeName === 'Background');
+                const getBgField = (name, subname = '') => {
+                    if (!bgNode) return '';
+                    let f = bgNode.fields.find(f => f.name === name && f.subname === subname);
+                    if (!f && subname) {
+                        f = bgNode.fields.find(f => f.name === subname && !f.subname);
+                    }
+                    return f ? (f.value || '') : '';
+                };
+                const prdContent = `# POPE批量&模板-${getBgField('Country')} ${getBgField('User')}新增模板-L1-V1.0
+
+DDP:
+多语言：
+AlltheField.xlsx：
+Template.xlsx：
+
+## 需求背景
+
+- ${getBgField('Benefits', 'Before')}
+- ${getBgField('Benefits', 'After')}
+
+## 需求范围
+
+- 国家：${getBgField('Country')}
+- 空间：${getBgField('User')}
+
+## 需求内容
+<table border="1" cellspacing="0" cellpadding="5">
+  <tr>
+    <th>属性</th>
+    <th>本期模板值</th>
+  </tr>
+  <tr>
+    <td>模板名称</td>
+    <td>${getBgField('Template name')}</td>
+  </tr>
+  <tr>
+    <td>是否开启自动审批</td>
+    <td>${getBgField('Canvas Automatic Approval', 'Open this function')}</td>
+  </tr>
+  <tr>
+    <td rowspan="3">审批指令</td>
+    <td>${getBgField('Country')} ${getBgField('User')} POPE create via templates xlsx</td>
+  </tr>
+  <tr>
+    <td>${getBgField('Template name')}</td>
+  </tr>
+  <tr>
+    <td><a href="https://cooper.didichuxing.com/knowledge/2204291401492/2206948427748">DeepBatch-POPE审批指令全景图</a></td>
+  </tr>
+  <tr>
+    <td>活动编排</td>
+    <td>${getBgField('Reference Canvas', 'Event ID')}</td>
+  </tr>
+  <tr>
+    <td rowspan="3">字段值</td>
+    <td>所有字段输入值：【AlltheField.xlsx】</td>
+  </tr>
+  <tr>
+    <td>Excel模板：【Template.xlsx】</td>
+  </tr>
+  <tr>
+    <td>格式：<a href="https://cooper.didichuxing.com/knowledge/2204291401492/2206721293750">POPE批量模板格式</a></td>
+  </tr>
+  <tr>
+    <td rowspan="3">变化字段说明</td>
+    <td>1.变量-Excel传入：</td>
+  </tr>
+  <tr>
+    <td>2.变量-系统生成：</td>
+  </tr>
+  <tr>
+    <td>3.固定值：</td>
+  </tr>
+  <tr>
+    <td rowspan="3">模板详情页</td>
+    <td>Push Text、DiDi Coupon、WhatsApp、SMS、Email：具体字段不显示，只有"Not Uploaded"</td>
+  </tr>
+  <tr>
+    <td>Empty Action、Special bubble for issuing coupons after call：无蒙层，无抽屉页</td>
+  </tr>
+  <tr>
+    <td>其余节点参考：【AlltheField.xlsx】</td>
+  </tr>
+</table>`;
+                const doc1Data = generateExportExcel();
+                const doc2Data = generateTemplateExcel();
+                const zip = new JSZip();
+                zip.file('AlltheField.xlsx', doc1Data);
+                zip.file('Template.xlsx', doc2Data);
+                zip.file(`POPE批量&模板-${getBgField('Country')}${getBgField('User')}新增模板-L1-V1.0.md`, prdContent);
+                zip.generateAsync({ type: 'blob' }).then(content => {
+                    const url = URL.createObjectURL(content);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `POPE批量&模板-${getBgField('Country')}${getBgField('User')}新增模板-L1-V1.0.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            };
+
+const getExportRows = () => {
                 const pinned = nodes.filter(n => n.pinned);
                 const targetGroup = nodes.filter(n => n.isTargetGroup);
                 const grid = nodes.filter(n => !n.pinned && !n.isTargetGroup).sort((a,b) => {
@@ -856,15 +961,7 @@ const deleteNode = (id) => {
                     return a.gridX - b.gridX;
                 });
                 const rows = [];
-                const merges = [];
-                let currentRow = 1;
                 pinned.forEach(n => {
-                    const fieldCount = n.fields.length;
-                    const startRow = currentRow;
-                    if (fieldCount > 1) {
-                        merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
-                        merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
-                    }
                     n.fields.forEach(f => {
                         rows.push({
                             position: '',
@@ -875,18 +972,11 @@ const deleteNode = (id) => {
                             value: f.value || '',
                             notes: n.notes || ''
                         });
-                        currentRow++;
                     });
                 });
                 targetGroup.forEach(n => {
                     const nodeLabel = `${n.nodeName}-1`;
                     const position = `(${n.gridX},${n.gridY})`;
-                    const fieldCount = n.fields.length;
-                    const startRow = currentRow;
-                    if (fieldCount > 1) {
-                        merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
-                        merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
-                    }
                     n.fields.forEach(f => {
                         rows.push({
                             position,
@@ -897,15 +987,12 @@ const deleteNode = (id) => {
                             value: f.deleted ? 'No Need' : (f.value || ''),
                             notes: n.notes || ''
                         });
-                        currentRow++;
                     });
                 });
                 grid.forEach((n, i) => {
                     const nodeLabel = `${n.nodeName}-${i+2}`;
                     const position = `(${n.gridX},${n.gridY})`;
-                    const fieldCount = n.fields.length;
-                    const startRow = currentRow;
-                    if (fieldCount === 0) {
+                    if (n.fields.length === 0) {
                         rows.push({
                             position,
                             node_name: nodeLabel,
@@ -915,28 +1002,26 @@ const deleteNode = (id) => {
                             value: '',
                             notes: n.notes || ''
                         });
-                        currentRow++;
                     } else {
-                        if (fieldCount > 1) {
-                            merges.push({s:{r:currentRow, c:1}, e:{r:currentRow + fieldCount - 1, c:1}});
-                            merges.push({s:{r:startRow, c:6}, e:{r:startRow + fieldCount - 1, c:6}});
-                        }
                         n.fields.forEach(f => {
                             rows.push({
                                 position,
                                 node_name: nodeLabel,
                                 field_name: f.subname || f.name,
                                 example: n.isCustom ? '' : (f.example || ''),
-data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMaxCallToAction ? '' : (f.dataType === 'excel_upload' ? 'Excel Upload' : f.dataType === 'follow_template_key' ? 'Follow Template Key' : f.dataType === 'fixed_value' ? 'Fixed' : f.dataType === 'system_generated' ? 'System-Generated' : '')),
+                                data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMaxCallToAction ? '' : (f.dataType === 'excel_upload' ? 'Excel Upload' : f.dataType === 'follow_template_key' ? 'Follow Template Key' : f.dataType === 'fixed_value' ? 'Fixed' : f.dataType === 'system_generated' ? 'System-Generated' : '')),
                                 value: f.deleted ? 'No Need' : (f.value || ''),
                                 notes: n.notes || ''
                             });
-                            currentRow++;
                         });
                     }
                 });
+                return rows;
+            };
+
+const generateExportExcel = () => {
+                const rows = getExportRows();
                 const ws = XLSX.utils.json_to_sheet(rows, {header: ['position', 'node_name', 'field_name', 'example', 'data_type', 'value', 'notes']});
-                ws['!merges'] = merges;
                 const colWidths = [{wch:12}, {wch:20}, {wch:35}, {wch:25}, {wch:15}, {wch:30}, {wch:25}];
                 ws['!cols'] = colWidths;
                 ws['!align'] = { horizontal: 'center' };
@@ -964,9 +1049,137 @@ data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMa
                 }
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'POPE');
-                XLSX.writeFile(wb, 'pope.xlsx');
+                return XLSX.write(wb, {bookType:'xlsx', type:'array'});
             };
-            
+
+const exportExcel = () => {
+                const excelData = generateExportExcel();
+                const blob = new Blob([excelData], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'AlltheField.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const generateTemplateExcel = () => {
+                const templateData = TEMPLATE_DATA;
+                const getPrompt = (nodeName, fieldName) => {
+                    const baseNodeName = nodeName.replace(/-\d+$/, '').trim();
+                    const nodeKey = Object.keys(templateData).find(k => {
+                        const baseK = k.replace(/-\d+$/, '').trim();
+                        return baseK.toLowerCase() === baseNodeName.toLowerCase() ||
+                               baseK.toLowerCase().includes(baseNodeName.toLowerCase()) ||
+                               baseNodeName.toLowerCase().includes(baseK.toLowerCase());
+                    });
+                    if (!nodeKey) return '';
+                    const nodeFields = templateData[nodeKey].fields || [];
+                    const field = nodeFields.find(f => f.id.toLowerCase() === fieldName.toLowerCase());
+                    return field ? (field.prompt || '') : '';
+                };
+                const bgNode = nodes.find(n => n.nodeName === 'Background');
+                let hasEventApproval = false;
+                if (bgNode) {
+                    const field = bgNode.fields.find(f => f.name === 'Canvas Automatic Approval' && f.subname === 'Open this function');
+                    if (field && field.value === 'Yes') hasEventApproval = true;
+                }
+                const orderedGridNodes = nodes.filter(n => !n.pinned && !n.isTargetGroup).sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
+                const nodeNumberById = new Map(orderedGridNodes.map((n, idx) => [n.id, idx + 2]));
+                const getTemplateNodeLabel = (node) => {
+                    if (node.isTargetGroup) return 'Target group-1';
+                    const num = nodeNumberById.get(node.id);
+                    return num ? `${node.nodeName}-${num}` : node.nodeName;
+                };
+                const templateNameField = bgNode ? bgNode.fields.find(f => f.name === 'Template name') : null;
+                const templateNameValue = templateNameField ? (templateNameField.value || '') : '';
+                const evtIdx = nodes.findIndex(n => n.nodeName === 'Event basic info');
+                const startIdx = evtIdx >= 0 ? evtIdx : 0;
+                const candidateNodes = nodes.map((n, i) => ({ node: n, origIdx: i })).filter(({ origIdx }) => origIdx >= startIdx);
+                const hasExcelUploadSelection = candidateNodes.some(({ node }) => node.fields.some(f => f.dataType === 'excel_upload' && !f.deleted));
+                const nodeCols = [];
+                candidateNodes.forEach(({ node }) => {
+                    const exportFields = hasExcelUploadSelection
+                        ? node.fields.filter(f => f.dataType === 'excel_upload' && !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction)
+                        : node.fields.filter(f => !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction);
+                    if (exportFields.length > 0) nodeCols.push({ node, fields: exportFields });
+                });
+                const totalCols = 1 + (hasEventApproval ? 1 : 0) + nodeCols.reduce((sum, nc) => sum + nc.fields.length, 0);
+                const TEMPLATE_MAX_ROWS = 1000;
+                const aoa = [];
+                for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) aoa.push(new Array(totalCols).fill(''));
+                aoa[0][0] = 'POPE Template';
+                aoa[1][0] = 'Template name';
+                aoa[2][0] = templateNameValue;
+                let colIdx = 1;
+                if (hasEventApproval) {
+                    aoa[0][colIdx] = 'Event Approval';
+                    aoa[1][colIdx] = 'Canvas Automatic Approval';
+                    aoa[2][colIdx] = 'Yes / No';
+                    colIdx++;
+                }
+                const merges = [];
+                const colIndexMap = [];
+                nodeCols.forEach(nc => {
+                    const startCol = colIdx;
+                    const baseName = nc.node.nodeName.replace(/-\d+$/, '');
+                    const displayName = getTemplateNodeLabel(nc.node);
+                    nc.fields.forEach((f) => {
+                        if (f.deleted) return;
+                        const fieldName = f.subname ? f.subname : f.name;
+                        const indexMatch = fieldName.match(/-(\d+)$/);
+                        const index = indexMatch ? parseInt(indexMatch[1]) : 0;
+                        aoa[0][colIdx] = displayName;
+                        aoa[1][colIdx] = fieldName;
+                        aoa[2][colIdx] = getPrompt(baseName, fieldName);
+                        colIndexMap.push({ col: colIdx, index });
+                        colIdx++;
+                    });
+                    if (nc.fields.length > 1) merges.push({ s: { r: 0, c: startCol }, e: { r: 0, c: colIdx - 1 } });
+                });
+                const colWidths = [{ wch: 24 }, { wch: 9 }, { wch: 29 }, { wch: 32 }, { wch: 9 }, { wch: 23 }, { wch: 17 }, { wch: 17 }, { wch: 23 }, { wch: 25 }];
+                while (colWidths.length < totalCols) colWidths.push({ wch: 18 });
+                const wb = XLSX.utils.book_new();
+                const ws = {};
+                ws['!cols'] = colWidths;
+                ws['!merges'] = merges;
+                ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: TEMPLATE_MAX_ROWS - 1, c: totalCols - 1 } });
+                for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) {
+                    for (let c = 0; c < totalCols; c++) {
+                        const cellRef = XLSX.utils.encode_cell({ r, c });
+                        const colInfo = colIndexMap.find(info => info.col === c);
+                        const isHighlight = colInfo && colInfo.index !== 0 && colInfo.index % 2 === 0;
+                        const isTopHeader = r === 0;
+                        const isFieldHeader = r === 1;
+                        const isPromptRow = r === 2;
+                        ws[cellRef] = {
+                            t: 's',
+                            v: aoa[r][c] || '',
+                            s: {
+                                font: { name: 'Times New Roman' },
+                                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+                                border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+                            }
+                        };
+                        if (isTopHeader && c === 0) {
+                            ws[cellRef].s.fill = { fgColor: { rgb: '4472C4' } };
+                            ws[cellRef].s.font = { bold: true, color: { rgb: 'FFFFFF' }, name: 'Times New Roman' };
+                        } else if (isTopHeader && aoa[r][c]) {
+                            ws[cellRef].s.fill = { fgColor: { rgb: 'D9E1F2' } };
+                            ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
+                        } else if (isFieldHeader || isPromptRow) {
+                            ws[cellRef].s.fill = { fgColor: { rgb: 'F2F2F2' } };
+                            if (isFieldHeader) ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
+                        }
+                        if (isHighlight) ws[cellRef].s.fill = { fgColor: { rgb: 'FFF2CC' } };
+                    }
+                }
+                XLSX.utils.book_append_sheet(wb, ws, 'POPE');
+                return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            };
+
             const importExcel = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1085,133 +1298,23 @@ data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMa
             return (
                 <div className="flex flex-col h-screen">
                     <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
-                        <h1 className="text-xl font-semibold">POPE Batch Template</h1>
-<button onClick={async () => {
-                            console.log('Download Template clicked!');
-                            const templateData = TEMPLATE_DATA;
-                            const getPrompt = (nodeName, fieldName) => {
-                                const baseNodeName = nodeName.replace(/-\d+$/, '').trim();
-                                const nodeKey = Object.keys(templateData).find(k => {
-                                    const baseK = k.replace(/-\d+$/, '').trim();
-                                    return baseK.toLowerCase() === baseNodeName.toLowerCase() ||
-                                           baseK.toLowerCase().includes(baseNodeName.toLowerCase()) ||
-                                           baseNodeName.toLowerCase().includes(baseK.toLowerCase());
-                                });
-                                if (!nodeKey) return '';
-                                const nodeFields = templateData[nodeKey].fields || [];
-                                const field = nodeFields.find(f => f.id.toLowerCase() === fieldName.toLowerCase());
-                                return field ? (field.prompt || '') : '';
-                            };
-                            const bgNode = nodes.find(n => n.nodeName === 'Background');
-                            let hasEventApproval = false;
-                            if (bgNode) {
-                                const field = bgNode.fields.find(f => f.name === 'Canvas Automatic Approval' && f.subname === 'Open this function');
-                                if (field && field.value === 'Yes') hasEventApproval = true;
-                            }
-                            const orderedGridNodes = nodes
-                                .filter(n => !n.pinned && !n.isTargetGroup)
-                                .sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
-                            const nodeNumberById = new Map(orderedGridNodes.map((n, idx) => [n.id, idx + 2]));
-                            const getTemplateNodeLabel = (node) => {
-                                if (node.isTargetGroup) return 'Target group-1';
-                                const num = nodeNumberById.get(node.id);
-                                return num ? `${node.nodeName}-${num}` : node.nodeName;
-                            };
-                            const templateNameField = bgNode ? bgNode.fields.find(f => f.name === 'Template name') : null;
-                            const templateNameValue = templateNameField ? (templateNameField.value || '') : '';
-                            const evtIdx = nodes.findIndex(n => n.nodeName === 'Event basic info');
-                            const startIdx = evtIdx >= 0 ? evtIdx : 0;
-                            const candidateNodes = nodes
-                                .map((n, i) => ({ node: n, origIdx: i }))
-                                .filter(({ origIdx }) => origIdx >= startIdx);
-                            const hasExcelUploadSelection = candidateNodes
-                                .some(({ node }) => node.fields.some(f => f.dataType === 'excel_upload' && !f.deleted));
-                            const nodeCols = [];
-                            candidateNodes.forEach(({ node }) => {
-                                const exportFields = hasExcelUploadSelection
-                                    ? node.fields.filter(f => f.dataType === 'excel_upload' && !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction)
-                                    : node.fields.filter(f => !f.deleted && !f.isMaxCoupon && !f.isMaxQuickReply && !f.isMaxCallToAction);
-                                if (exportFields.length > 0) nodeCols.push({ node, fields: exportFields });
-                            });
-                            const totalCols = 1 + (hasEventApproval ? 1 : 0) + nodeCols.reduce((sum, nc) => sum + nc.fields.length, 0);
-                            const TEMPLATE_MAX_ROWS = 1000;
-                            const aoa = [];
-                            for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) aoa.push(new Array(totalCols).fill(''));
-                            aoa[0][0] = 'POPE Template';
-                            aoa[1][0] = 'Template name';
-                            aoa[2][0] = templateNameValue;
-                            let colIdx = 1;
-                            if (hasEventApproval) {
-                                aoa[0][colIdx] = 'Event Approval';
-                                aoa[1][colIdx] = 'Canvas Automatic Approval';
-                                aoa[2][colIdx] = 'Yes / No';
-                                colIdx++;
-                            }
-                            const merges = [];
-                            const colIndexMap = [];
-                            nodeCols.forEach(nc => {
-                                const startCol = colIdx;
-                                const baseName = nc.node.nodeName.replace(/-\d+$/, '');
-                                const displayName = getTemplateNodeLabel(nc.node);
-                                nc.fields.forEach((f) => {
-                                    if (f.deleted) return;
-                                    const fieldName = f.subname ? f.subname : f.name;
-                                    const indexMatch = fieldName.match(/-(\d+)$/);
-                                    const index = indexMatch ? parseInt(indexMatch[1]) : 0;
-                                    aoa[0][colIdx] = displayName;
-                                    aoa[1][colIdx] = fieldName;
-                                    aoa[2][colIdx] = getPrompt(baseName, fieldName);
-                                    colIndexMap.push({ col: colIdx, index });
-                                    colIdx++;
-                                });
-                                if (nc.fields.length > 1) merges.push({ s: { r: 0, c: startCol }, e: { r: 0, c: colIdx - 1 } });
-                            });
-                            const colWidths = [{ wch: 24 }, { wch: 9 }, { wch: 29 }, { wch: 32 }, { wch: 9 }, { wch: 23 }, { wch: 17 }, { wch: 17 }, { wch: 23 }, { wch: 25 }];
-                            while (colWidths.length < totalCols) colWidths.push({ wch: 18 });
-                            const wb = XLSX.utils.book_new();
-                            const ws = {};
-                            ws['!cols'] = colWidths;
-                            ws['!merges'] = merges;
-                            ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: TEMPLATE_MAX_ROWS - 1, c: totalCols - 1 } });
-                            for (let r = 0; r < TEMPLATE_MAX_ROWS; r++) {
-                                for (let c = 0; c < totalCols; c++) {
-                                    const cellRef = XLSX.utils.encode_cell({ r, c });
-                                    const colInfo = colIndexMap.find(info => info.col === c);
-                                    const isHighlight = colInfo && colInfo.index !== 0 && colInfo.index % 2 === 0;
-                                    const isTopHeader = r === 0;
-                                    const isFieldHeader = r === 1;
-                                    const isPromptRow = r === 2;
-                                    ws[cellRef] = {
-                                        t: 's',
-                                        v: aoa[r][c] || '',
-                                        s: {
-                                            font: { name: 'Times New Roman' },
-                                            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-                                            border: {
-                                                top: { style: 'thin' },
-                                                bottom: { style: 'thin' },
-                                                left: { style: 'thin' },
-                                                right: { style: 'thin' }
-                                            }
-                                        }
-                                    };
-                                    if (isTopHeader && c === 0) {
-                                        ws[cellRef].s.fill = { fgColor: { rgb: '4472C4' } };
-                                        ws[cellRef].s.font = { bold: true, color: { rgb: 'FFFFFF' }, name: 'Times New Roman' };
-                                    } else if (isTopHeader && aoa[r][c]) {
-                                        ws[cellRef].s.fill = { fgColor: { rgb: 'D9E1F2' } };
-                                        ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
-                                    } else if (isFieldHeader || isPromptRow) {
-                                        ws[cellRef].s.fill = { fgColor: { rgb: 'F2F2F2' } };
-                                        if (isFieldHeader) ws[cellRef].s.font = { bold: true, name: 'Times New Roman' };
-                                    }
-                                    if (isHighlight) ws[cellRef].s.fill = { fgColor: { rgb: 'FFF2CC' } };
-                                }
-                            }
-                            XLSX.utils.book_append_sheet(wb, ws, 'POPE');
-                            XLSX.writeFile(wb, 'pope_template.xlsx');
-                        }} className="ml-4 px-3 py-1 text-sm border-2 border-purple-500 text-purple-600 rounded hover:bg-purple-50 font-medium">Download Template</button>
+                        <div className="flex items-center gap-4">
+                            <h1 className="text-xl font-semibold">POPE Batch Template</h1>
+                            <button onClick={downloadPRD} className="px-3 py-1 text-sm border-2 border-orange-500 text-orange-600 rounded hover:bg-orange-50 font-medium">PRD</button>
+                        </div>
                         <div className="flex gap-3">
+                            <button onClick={() => {
+                                const excelData = generateTemplateExcel();
+                                const blob = new Blob([excelData], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'Template.xlsx';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }} className="px-3 py-1 text-sm border-2 border-purple-500 text-purple-600 rounded hover:bg-purple-50 font-medium">Download Template</button>
                             <button onClick={exportExcel} className="bg-blue-600 text-white px-4 py-2 rounded">Export</button>
                             <label className="bg-green-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-green-700">
                                 Upload
@@ -1323,16 +1426,16 @@ data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMa
                                             <tr className="text-left text-sm font-semibold text-gray-800 border-b">
                                                 <th className="pb-2 pr-4 w-40">Field</th>
                                                 <th className="pb-2 pr-4 w-48">Example</th>
-                                                <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></th>
-                                                <th className="pb-2">Value</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {selected.fields.map((f, i) => (
-                                                <tr key={i} className="border-b">
-                                                    <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>{f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}</td>
-                                                    <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
-                                                    <td className="py-3 pr-4"><select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.dataType || ''} onChange={e => updateField(selected.id, i, {dataType:e.target.value})}><option value="">Select...</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></td>
+<th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select></th>
+                                                    <th className="pb-2">Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {selected.fields.map((f, i) => (
+                                                    <tr key={i} className="border-b">
+                                                        <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>{f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}</td>
+                                                        <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
+                                                        <td className="py-3 pr-4"><select className="w-full bg-gray-50 border rounded px-2 py-1.5 text-sm" value={f.dataType || ''} onChange={e => updateField(selected.id, i, {dataType:e.target.value})}><option value="">Select...</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select></td>
                                                     <td className="py-3">{f.dataType === 'excel_upload' ? <div className="text-sm text-gray-400 italic">Upload from Excel</div> : <input type="text" className={`w-full border rounded px-2 py-1.5 text-sm ${f.dataType ? 'bg-gray-50' : 'bg-gray-200 cursor-not-allowed'}`} value={f.value||''} placeholder={f.dataType ? 'Enter value' : 'Select data type first'} disabled={!f.dataType} onChange={e => updateField(selected.id, i, {value:e.target.value})}/>}</td>
                                                 </tr>
                                             ))}
@@ -1399,7 +1502,7 @@ data_type: f.deleted ? 'No Need' : (f.isMaxCoupon || f.isMaxQuickReply || f.isMa
                                                     <th className="pb-2 w-10"></th>
                                                     <th className="pb-2 pr-4 w-40">Field</th>
                                                     <th className="pb-2 pr-4 w-48">Example</th>
-                                                    <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></select></th>
+                                                    <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select></th>
                                                     <th className="pb-2">Value</th>
                                                 </tr>
                                             </thead>
