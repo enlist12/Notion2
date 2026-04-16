@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>POPE Grid Editor</title>
+    <title>POPE Batch Template</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -650,6 +650,7 @@
             const [dragState, setDragState] = useState(null);
             const [wasDragged, setWasDragged] = useState(false);
             const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
+            const [openTooltip, setOpenTooltip] = useState(null);
             const mainRef = useRef(null);
             
             const handleSave = () => {
@@ -659,6 +660,7 @@
             const closeModal = () => {
                 setSelectedId(null);
                 setShowIncompleteWarning(false);
+                setOpenTooltip(null);
             };
             
             useEffect(() => {
@@ -861,6 +863,7 @@ const deleteNode = (id) => {
                 };
                 const prdContent = `# POPE批量&模板-${getBgField('Country')} ${getBgField('User')}新增模板-L1-V1.0
 
+
 DDP:
 多语言：
 AlltheField.xlsx：
@@ -868,8 +871,8 @@ Template.xlsx：
 
 ## 需求背景
 
-- ${getBgField('Benefits', 'Before')}
-- ${getBgField('Benefits', 'After')}
+- 之前： ${getBgField('Benefits', 'Before')}
+- 之后： ${getBgField('Benefits', 'After')}
 
 ## 需求范围
 
@@ -962,13 +965,14 @@ const getExportRows = () => {
                 });
                 const rows = [];
                 pinned.forEach(n => {
+                    const isEventBasicInfo = n.nodeName === 'Event basic info';
                     n.fields.forEach(f => {
                         rows.push({
                             position: '',
                             node_name: n.nodeName,
                             field_name: f.subname || f.name,
                             example: f.example || '',
-                            data_type: '',
+                            data_type: isEventBasicInfo ? (f.dataType === 'excel_upload' ? 'Excel Upload' : f.dataType === 'fixed_value' ? 'Fixed' : f.dataType === 'system_generated' ? 'System-Generated' : '') : '',
                             value: f.value || '',
                             notes: n.notes || ''
                         });
@@ -1255,7 +1259,7 @@ const exportExcel = () => {
                             currentNode.fields.push({
                                 name,
                                 subname,
-                                example: row.prompt || '',
+                                example: row.example || '',
                                 dataType,
                                 value: fieldValue,
                                 deleted
@@ -1426,7 +1430,18 @@ const exportExcel = () => {
                                             <tr className="text-left text-sm font-semibold text-gray-800 border-b">
                                                 <th className="pb-2 pr-4 w-40">Field</th>
                                                 <th className="pb-2 pr-4 w-48">Example</th>
-<th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select></th>
+<th className="pb-2 pr-4 w-56">
+                                                        <div className="flex items-center gap-1">
+                                                            <span>Data Type</span>
+                                                            <div className="relative group">
+                                                                <span className="inline-flex items-center justify-center w-4 h-4 text-xs text-gray-400 border border-gray-400 rounded-full hover:text-gray-600 hover:border-gray-600 cursor-pointer" onClick={e => { e.stopPropagation(); setOpenTooltip(openTooltip === 'datatype-tip' ? null : 'datatype-tip'); }}>?</span>
+                                                                <div className={`absolute left-0 top-6 z-10 w-64 p-3 bg-white border border-gray-200 rounded shadow-lg text-xs text-gray-600 ${openTooltip === 'datatype-tip' ? 'block' : 'hidden'}`}>
+                                                                    See in <a href="https://cooper.didichuxing.com/docs2/document/2207466607855" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://cooper.didichuxing.com/docs2/document/2207466607855</a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select>
+                                                    </th>
                                                     <th className="pb-2">Value</th>
                                                 </tr>
                                             </thead>
@@ -1447,7 +1462,20 @@ const exportExcel = () => {
                                         <tbody>
                                             {selected.fields.map((f, i) => (
                                                 <tr key={i} className="border-b">
-                                                    <td className="py-3 pr-4"><div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>{f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}</td>
+                                                    <td className="py-3 pr-4">
+                                                        <div className="flex items-center gap-1">
+                                                            <div className={`text-sm ${f.subname?'text-gray-400':'text-gray-800'}`}>{f.name}</div>
+                                                            {f.name === 'Canvas Automatic Approval' && (
+                                                                <div className="relative group">
+                                                                    <span className="inline-flex items-center justify-center w-4 h-4 text-xs text-gray-400 border border-gray-400 rounded-full hover:text-gray-600 hover:border-gray-600 cursor-pointer" onClick={e => { e.stopPropagation(); setOpenTooltip(openTooltip === 'canvas-approval-tip' ? null : 'canvas-approval-tip'); }}>?</span>
+                                                                    <div className={`absolute left-0 top-6 z-10 w-64 p-3 bg-white border border-gray-200 rounded shadow-lg text-xs text-gray-600 ${openTooltip === 'canvas-approval-tip' ? 'block' : 'hidden'}`}>
+                                                                        See in <a href="https://cooper.didichuxing.com/docs2/document/2207466607855" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://cooper.didichuxing.com/docs2/document/2207466607855</a>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {f.subname && <div className="text-sm text-gray-800">{f.subname}</div>}
+                                                    </td>
                                                     <td className="py-3 pr-4"><div className="text-xs text-gray-400">{f.example || '-'}</div></td>
                                                     <td className="py-3">
                                                         {f.name === 'Canvas Automatic Approval' ? (
@@ -1502,7 +1530,18 @@ const exportExcel = () => {
                                                     <th className="pb-2 w-10"></th>
                                                     <th className="pb-2 pr-4 w-40">Field</th>
                                                     <th className="pb-2 pr-4 w-48">Example</th>
-                                                    <th className="pb-2 pr-4 w-56">Data Type <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select></th>
+<th className="pb-2 pr-4 w-56">
+                                                        <div className="flex items-center gap-1">
+                                                            <span>Data Type</span>
+                                                            <div className="relative group">
+                                                                <span className="inline-flex items-center justify-center w-4 h-4 text-xs text-gray-400 border border-gray-400 rounded-full hover:text-gray-600 hover:border-gray-600 cursor-pointer" onClick={e => { e.stopPropagation(); setOpenTooltip(openTooltip === 'datatype-tip-2' ? null : 'datatype-tip-2'); }}>?</span>
+                                                                <div className={`absolute left-0 top-6 z-10 w-64 p-3 bg-white border border-gray-200 rounded shadow-lg text-xs text-gray-600 ${openTooltip === 'datatype-tip-2' ? 'block' : 'hidden'}`}>
+                                                                    See in <a href="https://cooper.didichuxing.com/docs2/document/2207466607855" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://cooper.didichuxing.com/docs2/document/2207466607855</a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <select className="ml-1 bg-white border rounded px-1 py-0.5 text-xs font-normal text-black" onChange={e => { if(e.target.value) { batchUpdateDataType(selected.id, e.target.value); } }}><option value="">Apply to all</option><option value="excel_upload">Excel Upload</option>{TEMPLATES[selected.nodeName]?.useFollowTemplateKey ? <option value="follow_template_key">Follow Template Key</option> : <><option value="fixed_value">Fixed</option><option value="system_generated">System-Generated</option></>}</select>
+                                                    </th>
                                                     <th className="pb-2">Value</th>
                                                 </tr>
                                             </thead>
